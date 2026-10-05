@@ -1,0 +1,17 @@
+{
+  "name": "dispensing-record",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": { "exceljs": "4.4.0" },
+  "overrides": { "exceljs": { "uuid": "11.1.1" } },
+  "devDependencies": { "vite": "8.3.2", "@playwright/test": "1.58.2" },
+  "engines": { "node": ">=22.12.0" }
+}

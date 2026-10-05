@@ -1,0 +1,9 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+dispensing-backup-*.json
+dispensing-record-*.xlsx
+dispensing-stored-data.txt
