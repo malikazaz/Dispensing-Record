@@ -35,7 +35,7 @@ $('#app').innerHTML = `
         <h2 id="form-title" class="sr-only">New dispense</h2>
         <form id="entry-form">
           <div class="two-col"><div class="field"><label for="dispense-date">Date</label><div class="date-stepper"><button id="previous-date" type="button" class="date-arrow" aria-label="Previous day">‹</button><input id="dispense-date" type="date" name="date" required min="1900-01-01" max="9999-12-31"><button id="next-date" type="button" class="date-arrow" aria-label="Next day">›</button></div></div><label class="field">Customer number<input name="number" type="text" inputmode="numeric" maxlength="80" placeholder="e.g. 001234" required autocomplete="off"></label></div>
-          <label class="field">Customer name<input name="name" maxlength="160" placeholder="Enter customer name" required autocomplete="off"></label>
+          <label class="field">Customer name<input name="name" autocapitalize="words" maxlength="160" placeholder="Enter customer name" required autocomplete="off"></label>
           <fieldset><legend>Dispense type <span>Select all that apply</span></legend><div class="chips types">${choices('types')}</div></fieldset>
           <fieldset><legend>Lens sets</legend><div class="segmented"><label><input type="radio" name="set" value="first" checked><span>1st set of lenses</span></label><label><input type="radio" name="set" value="second"><span>2nd set of lenses</span></label></div><p class="field-hint">Select add-ons and offers for each set. Both sets save in one record.</p></fieldset>
           <fieldset><legend>Add-ons <span>Optional</span></legend><div class="chips">${choices('addons')}</div></fieldset>
