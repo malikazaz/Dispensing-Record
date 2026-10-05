@@ -23,7 +23,7 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 ## Use the app
 
 1. Enter date, customer number and customer name. Customer numbers remain text, preserving leading zeros. Use the arrows beside the date to move one day backward/forward, or tap the date to use the calendar.
-2. Tick all relevant paper columns, choose the lens set and select purchased add-ons.
+2. Tick the relevant paper columns and both frame prices for the customer. Select **1st set of lenses** and choose its add-ons/offers, then **2nd set of lenses** for its own choices. Each set remembers its selections when switching; the customer, date and frame selections are shared. Both sets save as one record.
 3. Open **Special offers** when relevant. The bonus and its breakdown update immediately.
 4. Save the dispense. The form clears customer/dispense choices, keeps the selected date and scrolls back to the top of the form for the next customer. The date also survives a page refresh in the same tab. Editing an older record does not change your new-entry date. Open **Records** to search, edit or remove saved entries; removing asks for confirmation.
 5. **Export** opens the bonus-report dialog. Choose **Excel (.xlsx)** or **PDF (.pdf)**, then **This month**, **Last month**, **Custom dates** or **All records**. Optionally name the section, review its record count and bonus total, and select **Download Excel** or **Download PDF**.
@@ -35,7 +35,7 @@ For a particular claim, choose **Custom dates** and enter the start and end date
 
 The workbook contains a **Bonus period** worksheet with only that period's records, the date range, and its own total, plus the **Bonus key** worksheet. Its filename includes the start and end dates. **All records** remains available and uses the original **Dispensing Record** worksheet. Searching the on-screen list does not change either export's scope. Exporting does not remove, archive or mark records as paid; overlapping periods may include the same records. The chosen dates are retained while the page stays open, and reset to this month after reloading.
 
-Selecting a second lens set alone uses the ordinary second-set rates. Select a second-pair special offer explicitly when that promotion applies. For a second-pair SV offer with any add-ons, the app automatically switches to the single flat €5 bonus.
+The lens-set buttons switch between independent add-on/offer selections on the same record. The preview includes both sets, with each amount labelled 1st or 2nd set. Shared paper/frame bonuses are counted once (using the first-set frame rates); under 241, only the most expensive frame earns a bonus. For example, first-set UCSC €1.50 + second-set UCSC €2 + 160/190 frames under 241 €3 = **€6.50**. Selecting a second lens set alone uses the ordinary second-set rates. Select a second-pair special offer explicitly when that promotion applies. For a second-pair SV offer with any add-ons, the app automatically switches that set to the single flat €5 bonus. First-set bonuses and the shared frame bonus are kept separately. Golden Ticket applies only to the add-ons in the set where it is selected.
 
 Without Supabase configured, records stay in this browser profile and site origin. With online saving connected, records and the bonus key also sync to the signed-in account's private database; the status distinguishes confirmed online saves from changes waiting to sync. Her existing local data stays intact until she signs in and chooses **Connect and upload**. A fresh browser can sign in and download the online copy. See [setup, recovery and conflict handling](docs/ONLINE-SAVING.md).
 
@@ -61,7 +61,7 @@ The user supplied the full key and exact table headings directly on 5 October 20
 | Tailormade | €2.50 | €2.50 |
 | Supereader | €2.00 | €2.00 |
 
-Single-column Elite, Tailormade and Supereader rates are applied to both sets. Ticking **160** adds €1.50; **190** and **240** add €3 each. Other paper columns are zero-bonus markers because the supplied key lists no separate payment for them. Each tick is counted once. Combined options such as Polaroid 1.6 have their own rate: do not also tick their constituent options for the same lens.
+Single-column Elite, Tailormade and Supereader rates are applied to both sets. Ticking **160** adds €1.50; **190** and **240** add €3 each. Other paper columns are zero-bonus markers because the supplied key lists no separate payment for them. With **241** selected, tick both frame prices on the same record: only the highest-priced frame earns a frame bonus. For example, 160 + 190 under 241 earns €3 for the frames, not €4.50. Lens add-on bonuses are calculated separately. Without 241, each tick is counted once. Combined options such as Polaroid 1.6 have their own rate: do not also tick their constituent options for the same lens.
 
 | Offer | Behaviour |
 | --- | --- |
@@ -72,7 +72,9 @@ Single-column Elite, Tailormade and Supereader rates are applied to both sets. T
 
 **Basic second-pair rate:** the full key says €3. The later clarification said “€3 (or €2, whichever it is)”; the app therefore retains the explicit €3 rate. This is editable under **Bonus key**.
 
-Implementation conventions: the flat second-pair amount replaces the entire ordinary bonus, including frame increments, following “it will all just come to €5.” Golden Ticket is an additional payment, so if also selected with that flat offer, the result is €5 plus €1 per selected add-on. The third-pair €2 is treated as an additional payment. Verify those combinations before using them if the paper key imposes restrictions that were not supplied.
+For new records containing both lens sets, offers apply to their own set. The second-pair flat amount replaces the second-set bonus; first-set bonuses and the shared frame bonus remain. Shared paper/frame bonuses use the first-set rate.
+
+For existing single-set records, the flat second-pair amount replaces the entire ordinary bonus, including frame increments, following “it will all just come to €5.” Golden Ticket is an additional payment, so if also selected with that flat offer, the result is €5 plus €1 per selected add-on. The third-pair €2 is treated as an additional payment. Verify those combinations before using them if the paper key imposes restrictions that were not supplied.
 
 **Bonus key** allows rate, currency and offer-behaviour edits. Changing currency only relabels the amounts; it does not convert them. Saving a changed key recalculates all historical records, after confirmation; download a backup first if you need to retain an earlier key. New default keys in source code do not overwrite an existing browser's saved key.
 
@@ -151,6 +153,8 @@ Files:
 - `src/export-table.js`: shared paper headings and record details for both formats.
 - `src/export-selection.js`: inclusive date filtering, period summaries, month shortcuts and export filenames.
 - `.github/workflows/deploy.yml`: checks and GitHub Pages deployment.
+
+Records may contain an optional `lensSets` object with independent `first` and `second` add-on/offer arrays. Existing single-set records remain readable and keep their original single-set calculation; editing one adds the paired format only when choices are added to the other set. Both sets are retained in backups and online documents, and listed in the Addons column of Excel/PDF exports. Existing 241 records are recalculated using only their highest-priced frame.
 
 Storage is schema version 1 under `dispensing-record:v1`. Broken stored data is not overwritten automatically. Download the original stored text for recovery or restore a valid JSON backup. Writes fail visibly if storage is blocked, full or changed in another tab.
 

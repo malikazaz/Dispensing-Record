@@ -1,5 +1,6 @@
 import { CloudSync, documentOf, validateLink } from './cloud-model.js';
 import { loadCloudConfig, createCloudClient, cloudAdapter } from './cloud-client.js';
+import { recordDetails } from './export-table.js';
 
 export function installCloudUI({ read, write, locked, backup, notify, assertFresh }) {
   const $ = selector => document.querySelector(selector);
@@ -127,7 +128,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
   };
   function describe(value, isKey) {
     if (!value) return 'Removed';
-    if (!isKey) return `${value.date} · ${value.name} · Customer ${value.number}\n${value.types.join(', ')} · ${value.set === 'first' ? '1st' : '2nd'} set\nAdd-ons: ${value.addons.join(', ') || 'None'}\nOffers: ${value.offers.join(', ') || 'None'}`;
+    if (!isKey) return `${value.date} · ${value.name} · Customer ${value.number}\n${value.types.join(', ')}\n${recordDetails(value,{issues:[]})}`;
     return `${value.currency} · ${value.confirmed ? 'Confirmed' : 'Unconfirmed'}\n${Object.entries(value.rates).map(([label, rate]) => `${label.split(':')[1]}: ${rate.first === null ? '?' : (rate.first / 100).toFixed(2)} / ${rate.second === null ? '?' : (rate.second / 100).toFixed(2)} (${rate.mode || 'unconfirmed'})`).join('\n')}\n${value.source}`;
   }
   $('#cloud-review').onclick = () => {

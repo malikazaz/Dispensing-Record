@@ -1,5 +1,5 @@
 import './style.css';
-import { GROUPS, MODES, blankEntry, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
+import { GROUPS, MODES, blankEntry, lensSetsOf, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
 import { loadState, saveState, STORAGE_KEY } from './storage.js';
 import { monthPeriod, selectExport, exportFilename, periodLabel } from './export-selection.js';
 import { documentOf, equal } from './cloud-model.js';
@@ -13,6 +13,7 @@ let state = initialState(), raw = null, storageError = '', editing = null, editi
 try { ({state,raw} = loadState(localStorage)); }
 catch { storageError = 'Saved records could not be read. Existing storage has been left untouched. Download the stored data below for recovery, or restore a valid backup.'; }
 const fmt = (cents) => money(cents,state.key.currency);
+let lensDraft, activeLensSet = 'first', legacyLensSet = null;
 let entryDate;
 try { entryDate = readEntryDate(sessionStorage); } catch { entryDate = localDate(); }
 
@@ -36,7 +37,7 @@ $('#app').innerHTML = `
           <div class="two-col"><div class="field"><label for="dispense-date">Date</label><div class="date-stepper"><button id="previous-date" type="button" class="date-arrow" aria-label="Previous day">‹</button><input id="dispense-date" type="date" name="date" required min="1900-01-01" max="9999-12-31"><button id="next-date" type="button" class="date-arrow" aria-label="Next day">›</button></div></div><label class="field">Customer number<input name="number" type="text" maxlength="80" placeholder="e.g. 001234" required autocomplete="off"></label></div>
           <label class="field">Customer name<input name="name" maxlength="160" placeholder="Enter customer name" required autocomplete="off"></label>
           <fieldset><legend>Dispense type <span>Select all that apply</span></legend><div class="chips types">${choices('types')}</div></fieldset>
-          <fieldset><legend>Lens set</legend><div class="segmented"><label><input type="radio" name="set" value="first" checked><span>1st set of lenses</span></label><label><input type="radio" name="set" value="second"><span>2nd set of lenses</span></label></div></fieldset>
+          <fieldset><legend>Lens sets</legend><div class="segmented"><label><input type="radio" name="set" value="first" checked><span>1st set of lenses</span></label><label><input type="radio" name="set" value="second"><span>2nd set of lenses</span></label></div><p class="field-hint">Select add-ons and offers for each set. Both sets save in one record.</p></fieldset>
           <fieldset><legend>Add-ons <span>Optional</span></legend><div class="chips">${choices('addons')}</div></fieldset>
           <details class="offers"><summary>Special offers <span>Optional</span></summary><div class="offer-list">${choices('offers',true)}</div></details>
           <div id="bonus-preview" class="bonus-preview" aria-live="polite"></div>
@@ -85,16 +86,32 @@ function commit(next) {
     return false;
   }
 }
-function readEntry() {
+function captureLensSet() {
   const form = new FormData($('#entry-form'));
-  return { id: editing || '', date: form.get('date'), number: form.get('number').trim(), name: form.get('name').trim(), set: form.get('set'), ...Object.fromEntries(Object.keys(GROUPS).map(group => [group,form.getAll(group)])) };
+  lensDraft[activeLensSet] = { addons: form.getAll('addons'), offers: form.getAll('offers') };
+}
+function showLensSet() {
+  for (const group of ['addons','offers']) for (const input of $('#entry-form').querySelectorAll(`input[name="${group}"]`)) input.checked = lensDraft[activeLensSet][group].includes(input.value);
+  $('.offers').open = lensDraft[activeLensSet].offers.length > 0;
+}
+function readEntry() {
+  captureLensSet();
+  const form = new FormData($('#entry-form'));
+  const base = { id: editing || '', date: form.get('date'), number: form.get('number').trim(), name: form.get('name').trim(), types: form.getAll('types') };
+  // Old single-set records retain their original calculation until another set is added.
+  const otherSet = legacyLensSet === 'first' ? 'second' : 'first';
+  if (legacyLensSet && !lensDraft[otherSet].addons.length && !lensDraft[otherSet].offers.length) return {...base, set: legacyLensSet, ...structuredClone(lensDraft[legacyLensSet])};
+  return { ...base, set: activeLensSet, ...structuredClone(lensDraft[activeLensSet]), lensSets: structuredClone(lensDraft) };
 }
 function fillEntry(entry={...blankEntry(),date:entryDate}) {
   const form = $('#entry-form');
+  lensDraft = lensSetsOf(entry);
+  activeLensSet = entry.set;
+  legacyLensSet = entry.id && !entry.lensSets ? entry.set : null;
   for (const name of ['date','number','name']) form.elements[name].value = entry[name];
-  for (const input of form.querySelectorAll('input[type="checkbox"]')) input.checked = entry[input.name].includes(input.value);
-  for (const input of form.querySelectorAll('input[name="set"]')) input.checked = input.value === entry.set;
-  $('.offers').open = entry.offers.length > 0;
+  for (const input of form.querySelectorAll('input[name="types"]')) input.checked = entry.types.includes(input.value);
+  for (const input of form.querySelectorAll('input[name="set"]')) input.checked = input.value === activeLensSet;
+  showLensSet();
   $('#form-title').textContent = editing ? 'Edit dispense' : 'New dispense';
   $('#save-entry').innerHTML = `${icon(editing ? 'check':'plus')}${editing ? 'Save changes':'Save dispense'}`;
   $('#cancel-edit').hidden = !editing;
@@ -139,8 +156,9 @@ for (const name of ['entry', 'records']) {
   };
 }
 function updatePreview() {
-  const result = calculate(readEntry(),state.key);
-  const selected = readEntry().types.length > 0;
+  const entry = readEntry();
+  const result = calculate(entry,state.key);
+  const selected = entry.types.length > 0;
   $('#bonus-preview').innerHTML = `<div class="bonus-line"><span>${result.cents === null && selected ? 'Bonus needs review':'Bonus for this dispense'}</span><strong>${!selected ? '—' : result.cents === null ? 'Pending' : fmt(result.cents)}</strong></div>${selected ? `<div class="breakdown">${result.parts.filter(p=>p.cents).map(p=>`<span>${escape(p.label)} <b>${fmt(p.cents)}</b></span>`).join('') || 'No additional bonus selected.'}</div>${result.issues.length ? `<ul class="issue-list">${result.issues.map(s=>`<li>${escape(s)}</li>`).join('')}</ul>` : ''}` : '<p>Select a dispense type to get started.</p>'}`;
 }
 function dateText(date) { return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(`${date}T12:00:00`)); }
@@ -164,11 +182,19 @@ function renderRecords() {
   }
   $('#records').innerHTML = `<div class="table-scroll"><table class="record-table"><thead><tr><th>Date / customer</th><th>Dispense details</th><th class="bonus-heading">Bonus</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${entries.map(entry=>{
     const result=calculate(entry,state.key);
-    return `<tr><td><span class="record-date">${dateText(entry.date)}</span><strong class="customer-name">${escape(entry.name)}</strong><span class="customer-number">#${escape(entry.number)}</span></td><td><div class="record-tags">${entry.types.map(t=>`<span>${escape(t)}</span>`).join('')}<span class="set-tag">${entry.set==='first'?'1st':'2nd'} set</span></div><p class="record-addons">${escape(entry.addons.join(' + ') || 'No add-ons')}</p>${entry.offers.length?`<p class="record-offers">${escape(entry.offers.join(' · '))}</p>`:''}${result.issues.length?`<details class="row-review"><summary>Review bonus</summary><ul>${result.issues.map(i=>`<li>${escape(i)}</li>`).join('')}</ul></details>`:''}</td><td class="row-bonus ${result.cents===null?'pending':''}">${result.cents===null?'Pending':fmt(result.cents)}</td><td class="row-actions"><button class="icon-button" data-action="edit" data-id="${entry.id}" aria-label="Edit ${escape(entry.name)}">${icon('edit')}</button><button class="icon-button danger" data-action="remove" data-id="${entry.id}" aria-label="Remove ${escape(entry.name)}">${icon('trash')}</button></td></tr>`;
+    return `<tr><td><span class="record-date">${dateText(entry.date)}</span><strong class="customer-name">${escape(entry.name)}</strong><span class="customer-number">#${escape(entry.number)}</span></td><td><div class="record-tags">${entry.types.map(t=>`<span>${escape(t)}</span>`).join('')}<span class="set-tag">${entry.lensSets?'Lens sets':entry.set==='first'?'1st set':'2nd set'}</span></div><p class="record-addons">${escape(entry.lensSets ? ['first','second'].map(set => `${set==='first'?'1st':'2nd'}: ${[...entry.lensSets[set].addons,...entry.lensSets[set].offers].join(' + ') || 'No add-ons'}`).join(' · ') : entry.addons.join(' + ') || 'No add-ons')}</p>${!entry.lensSets && entry.offers.length?`<p class="record-offers">${escape(entry.offers.join(' · '))}</p>`:''}${result.issues.length?`<details class="row-review"><summary>Review bonus</summary><ul>${result.issues.map(i=>`<li>${escape(i)}</li>`).join('')}</ul></details>`:''}</td><td class="row-bonus ${result.cents===null?'pending':''}">${result.cents===null?'Pending':fmt(result.cents)}</td><td class="row-actions"><button class="icon-button" data-action="edit" data-id="${entry.id}" aria-label="Edit ${escape(entry.name)}">${icon('edit')}</button><button class="icon-button danger" data-action="remove" data-id="${entry.id}" aria-label="Remove ${escape(entry.name)}">${icon('trash')}</button></td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 
-$('#entry-form').addEventListener('input', updatePreview);
+$('#entry-form').addEventListener('input', event => {
+  if (event.target.name === 'set' && event.target.value !== activeLensSet) {
+    captureLensSet();
+    activeLensSet = event.target.value;
+    showLensSet();
+    showError($('#form-error'),'');
+  }
+  updatePreview();
+});
 $('#entry-form').addEventListener('submit', event => {
   event.preventDefault();
   try {
@@ -205,7 +231,7 @@ function openKey() {
   $('#key-content').innerHTML = `<label class="field currency-field">Currency<select name="currency"><option value="EUR" ${state.key.currency==='EUR'?'selected':''}>Euro (€)</option><option value="GBP" ${state.key.currency==='GBP'?'selected':''}>Pound (£)</option></select></label><p class="field-hint">Changing currency relabels amounts; it does not convert them.</p>${Object.entries(GROUPS).map(([group,labels])=>`<section class="key-section"><h3>${({types:'Paper-table columns',addons:'Add-ons',offers:'Special offers'})[group]}</h3>${group==='types'?'<p class="field-hint">Columns without a listed bonus use 0. Select all applicable paper columns.</p>':''}<div class="rate-head"><span>Item</span><span>1st set</span><span>2nd set</span></div>${labels.map(label=>{
     const id=ruleId(group,label),rate=state.key.rates[id];
     return `<div class="rate-row"><span>${escape(label)}</span>${['first','second'].map(set=>`<input aria-label="${escape(label)} ${set==='first'?'1st':'2nd'} set rate" name="${escape(`${id}:${set}`)}" type="number" min="0" max="10000" step="0.01" inputmode="decimal" placeholder="Unknown" value="${rate[set]===null?'':(rate[set]/100).toFixed(2)}">`).join('')}</div>${group==='offers'?`<label class="offer-mode">How this offer applies<select name="${escape(id)}:mode" aria-label="${escape(label)} calculation"><option value="">Needs confirmation</option>${Object.entries(MODES).map(([mode,text])=>`<option value="${mode}" ${rate.mode===mode?'selected':''}>${text}</option>`).join('')}</select></label>`:''}`;
-  }).join('')}</section>`).join('')}<div class="key-notes"><strong>How offers work</strong><p>Second-pair offers require the 2nd set; the SV offer also requires SV. The third-pair offer requires 241. Golden Ticket adds an extra amount for each add-on. Under the second-pair SV offer, any add-ons automatically switch to one flat payment instead of the basic bonus and individual add-on rates. The supplied basic SV rate is €3; this can be corrected here if needed. The flat rate defaults to €5. Distinct replacement offers cannot be combined.</p><p>Combined add-ons are separate choices: choose Polaroid 1.6 instead of also selecting Polaroid and 1.6 for the same lens.</p></div><label class="field">Source / notes<textarea name="source" rows="3" maxlength="4000">${escape(state.key.source)}</textarea></label><label class="confirm-key"><input name="confirmed" type="checkbox" ${state.key.confirmed?'checked':''}><span>I have checked these rates and how the selected bonuses combine.</span></label>`;
+  }).join('')}</section>`).join('')}<div class="key-notes"><strong>How offers work</strong><p>With 241 selected, tick both frame prices on this record. Only the highest-priced frame earns a frame bonus. Each lens set has its own add-ons and offers; both sets are added to the record total.</p><p>Second-pair offers require the 2nd set; the SV offer also requires SV. The third-pair offer requires 241. Golden Ticket adds an extra amount for each add-on. Under the second-pair SV offer, any add-ons automatically switch to one flat payment instead of the basic bonus and individual add-on rates. The supplied basic SV rate is €3; this can be corrected here if needed. The flat rate defaults to €5. Distinct replacement offers cannot be combined.</p><p>Combined add-ons are separate choices: choose Polaroid 1.6 instead of also selecting Polaroid and 1.6 for the same lens.</p></div><label class="field">Source / notes<textarea name="source" rows="3" maxlength="4000">${escape(state.key.source)}</textarea></label><label class="confirm-key"><input name="confirmed" type="checkbox" ${state.key.confirmed?'checked':''}><span>I have checked these rates and how the selected bonuses combine.</span></label>`;
   showError($('#key-error'),'');$('#key-dialog').showModal();
 }
 $('#open-key').addEventListener('click',openKey);

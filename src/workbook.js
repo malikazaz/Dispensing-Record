@@ -70,9 +70,10 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
     row.eachCell(bodyCell);row.getCell(3).numFmt=currencyFormat;row.getCell(4).numFmt=currencyFormat;row.height=label.length>35?36:24;
   }
   for(const note of [
+    'Records with both lens sets add each set separately. Shared frame bonuses are counted once using first-set rates. A second-pair flat offer replaces only the second-set amount; first-set and shared frame bonuses remain. Golden Ticket applies to its selected set.',
     'Second-pair SV: with no add-ons, use its basic rate. With any add-ons, use the second-pair flat rate once, replacing the base, frame and individual add-on amounts. Selecting both second-pair offers still pays the flat rate only once.',
     'Golden Ticket adds its rate for each selected add-on. Combined choices (for example Polaroid 1.6) count as one selected add-on. The 3rd-pair offer requires 241 and cannot share a record with second-pair offers.',
-    'Unpriced paper columns are markers with zero bonus. Single-column add-on and frame rates apply to both lens sets. Each selected paper column is counted once. Choose only the options actually purchased.',
+    'Unpriced paper columns are markers with zero bonus. Single-column add-on and frame rates apply to both lens sets. With 241 selected, only the highest-priced selected frame earns a frame bonus. Lens add-ons are calculated separately. Choose only the options actually purchased.',
     'Excel bonuses are exported snapshots, not recalculating entry forms. Edit records or rates in the app and export again. The TOTAL cell is a SUM formula with a cached result. Pending records are excluded, never treated as a confirmed zero.',
     `Source: ${state.key.source}`,
   ]) {

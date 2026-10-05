@@ -1,6 +1,60 @@
 import { test, expect } from '@playwright/test';
 import { openAccount, showRecords } from './ui-helpers.js';
 
+test('switching lens sets keeps independent choices and saves both in one record', async ({ page }) => {
+  await page.goto('/');
+  const select = value => page.locator('label').filter({has:page.locator(`input[value="${value}"]`)}).click();
+  await page.getByLabel('Customer number', { exact: true }).fill('001');
+  await page.getByLabel('Customer name', { exact: true }).fill('Two sets');
+  await page.getByLabel('Date', { exact: true }).fill('2026-10-05');
+  for(const value of ['241','160','190','UCSC']) await select(value);
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€4.50');
+  await select('second');
+  await expect(page.locator('input[value="UCSC"]')).not.toBeChecked();
+  await expect(page.getByLabel('Customer name', { exact: true })).toHaveValue('Two sets');
+  await expect(page.getByLabel('Date', { exact: true })).toHaveValue('2026-10-05');
+  await select('UCSC');
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€6.50');
+  await page.locator('.offers summary').click(); await select('Golden Ticket');
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€7.50');
+  await select('first');
+  await expect(page.locator('input[value="UCSC"]')).toBeChecked();
+  await expect(page.locator('input[value="Golden Ticket"]')).not.toBeChecked();
+  await select('second');
+  await expect(page.locator('input[value="Golden Ticket"]')).toBeChecked();
+  await select('Golden Ticket');
+  await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
+  await expect(page.locator('#count')).toHaveText('1');
+  await expect(page.locator('input[value="UCSC"]')).not.toBeChecked();
+  await select('second'); await expect(page.locator('input[value="UCSC"]')).not.toBeChecked();
+  await page.reload(); await expect(page.locator('#total')).toHaveText('€6.50');
+  await showRecords(page); await page.getByRole('button', { name: 'Edit Two sets', exact: true }).click();
+  await expect(page.locator('input[value="UCSC"]')).toBeChecked();
+  await select('first'); await expect(page.locator('input[value="UCSC"]')).toBeChecked();
+  await select('UCSC');
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€5.00');
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.locator('#count')).toHaveText('1');
+  await expect(page.locator('#total')).toHaveText('€5.00');
+});
+
+test('241 pays only for the higher frame and preserves both frame ticks after saving', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Customer number', { exact: true }).fill('001');
+  await page.getByLabel('Customer name', { exact: true }).fill('Frame example');
+  for (const value of ['241','160','190']) {
+    await page.locator('label').filter({ has: page.locator(`input[name="types"][value="${value}"]`) }).click();
+  }
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€3.00');
+  await expect(page.locator('#bonus-preview .breakdown')).not.toContainText('160');
+  await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('#total')).toHaveText('€3.00');
+  await showRecords(page);
+  await page.getByRole('button', { name: 'Edit Frame example', exact: true }).click();
+  for (const value of ['241','160','190']) await expect(page.locator(`input[name="types"][value="${value}"]`)).toBeChecked();
+});
+
 async function save(page, name) {
   await page.getByLabel('Customer number', { exact: true }).fill('001');
   await page.getByLabel('Customer name', { exact: true }).fill(name);

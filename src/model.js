@@ -26,6 +26,12 @@ export function localDate() {
 export function blankEntry() {
   return { id: '', date: localDate(), number: '', name: '', types: [], addons: [], offers: [], set: 'first' };
 }
+export function lensSetsOf(entry) {
+  if (entry.lensSets) return structuredClone(entry.lensSets);
+  const sets = { first: { addons: [], offers: [] }, second: { addons: [], offers: [] } };
+  sets[entry.set] = { addons: [...entry.addons], offers: [...entry.offers] };
+  return sets;
+}
 export function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T12:00:00Z`);
@@ -40,6 +46,13 @@ export function validateEntry(entry) {
     if (!Array.isArray(entry[group]) || entry[group].some(v => !labels.includes(v)) || new Set(entry[group]).size !== entry[group].length) throw new Error(`Invalid ${group} selection.`);
   }
   if (!entry.types.length) throw new Error('Choose at least one dispense type.');
+  if (entry.lensSets !== undefined) {
+    if (!entry.lensSets || typeof entry.lensSets !== 'object' || Array.isArray(entry.lensSets)) throw new Error('Invalid lens sets.');
+    for (const set of ['first','second']) for (const group of ['addons','offers']) {
+      const values = entry.lensSets[set]?.[group];
+      if (!Array.isArray(values) || values.some(value => !GROUPS[group].includes(value)) || new Set(values).size !== values.length) throw new Error(`Invalid ${set}-set ${group}.`);
+    }
+  }
 }
 export function validateState(state) {
   if (!state || state.version !== 1 || typeof state.revision !== 'string' || !Array.isArray(state.entries) || state.entries.length > 10000) throw new Error('This is not a supported dispensing-record backup.');
@@ -59,6 +72,23 @@ export function validateState(state) {
   return state;
 }
 export function calculate(entry, key) {
+  if (!entry.lensSets) return calculateSet(entry,key);
+  const results = ['first','second'].map(set => {
+    const result = calculateSet({...entry, ...entry.lensSets[set], set}, key, set === 'second');
+    return {
+      ...result,
+      parts: result.parts.map(part => ({ ...part, label: GROUPS.types.includes(part.label) ? part.label : `${set === 'first' ? '1st' : '2nd'} set · ${part.label}` })),
+      issues: result.issues.map(issue => `${set === 'first' ? '1st' : '2nd'} set: ${issue}`),
+    };
+  });
+  const parts = results.flatMap(result => result.parts);
+  const issues = results.flatMap(result => result.issues);
+  const offers = Object.values(entry.lensSets).flatMap(set => set.offers);
+  if (offers.includes('3rd pair half-price combined with 2-4-1') && offers.some(offer => ['2nd pair SV','2nd-pair add-ons'].includes(offer))) issues.push('Second-pair and third-pair offers belong on separate records.');
+  const subtotal = parts.reduce((sum,part) => sum + part.cents,0);
+  return { cents: issues.length ? null : subtotal, subtotal, parts, issues };
+}
+function calculateSet(entry, key, skipTypes=false) {
   const issues = [];
   if (!entry.types.length) issues.push('Choose a dispense type.');
   if (!key.confirmed) issues.push('Check and confirm the bonus key.');
@@ -79,8 +109,13 @@ export function calculate(entry, key) {
   if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x))) issues.push('Second-pair and third-pair offers belong on separate records.');
   if (entry.offers.some(x => ['2nd-pair add-ons','Golden Ticket'].includes(x)) && !entry.addons.length) issues.push('This offer requires at least one add-on.');
   const parts = [];
+  // 241 pays for the most expensive frame, irrespective of its bonus rate.
+  const frames = entry.types.filter(label => ['70','95','130','160','190','240'].includes(label));
+  const paidFrame = entry.types.includes('241') && frames.length ? String(Math.max(...frames.map(Number))) : null;
   for (const group of ['types','addons','offers']) {
     for (const label of group === 'offers' ? effectiveOffers : entry[group]) {
+      if (skipTypes && group === 'types') continue;
+      if (group === 'types' && paidFrame && frames.includes(label) && label !== paidFrame) continue;
       const rate = key.rates[ruleId(group,label)];
       const skipped = (replace === 'replaceTotal' && group !== 'offers') || (['replaceAddons','perAddonReplace'].includes(replace) && group === 'addons');
       if (skipped) continue;

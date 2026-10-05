@@ -19,6 +19,27 @@ test('paper frame columns add 1.50, 3 and 3 euros',()=>{
 test('unpriced table columns are zero-bonus markers',()=>{
   for(const type of ['SV','BIF','Vari','241','Other','RE','70','95','130'])assert.equal(calculate(entry({types:[type]}),key).cents,0);
 });
+
+test('241 awards only the highest-priced frame while retaining add-on bonuses',()=>{
+  for (const set of ['first','second']) {
+    const result=calculate(entry({set,types:['241','160','190']}),key);
+    assert.equal(result.cents,300);
+    assert.equal(result.parts.some(part=>part.label==='160'),false);
+    assert.equal(calculate(entry({set,types:['241','240','190','160'],addons:['Elite']}),key).cents,500);
+  }
+  assert.equal(calculate(entry({types:['160','190']}),key).cents,450);
+  assert.equal(calculate(entry({types:['241','160']}),key).cents,150);
+});
+
+test('241 selects by frame price, including with custom or missing bonus rates',()=>{
+  const custom=defaultKey();
+  custom.rates['types:160'].first=900;
+  assert.equal(calculate(entry({types:['241','160','190']}),custom).cents,300);
+  custom.rates['types:160'].first=null;
+  assert.equal(calculate(entry({types:['241','160','190']}),custom).cents,300);
+  custom.rates['types:190'].first=null;
+  assert.equal(calculate(entry({types:['241','160','190']}),custom).cents,null);
+});
 test('Golden Ticket ADDS 1 euro per add-on, including combined add-ons once',()=>{
   assert.equal(calculate(entry({addons:['Polaroid','Elite'],offers:['Golden Ticket']}),key).cents,700);
   assert.equal(calculate(entry({addons:['Polaroid 1.6'],offers:['Golden Ticket']}),key).cents,500);
