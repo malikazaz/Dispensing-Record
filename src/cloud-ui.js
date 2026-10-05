@@ -7,7 +7,20 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
   host.className = 'cloud-panel'; host.setAttribute('aria-label', 'Online saving');
   host.innerHTML = `<div><strong>Online saving</strong><p id="cloud-status" role="status">Checking online settings…</p><p id="cloud-account" class="field-hint"></p></div>
     <div class="cloud-actions"><button id="cloud-login" class="button secondary" hidden>Sign in</button><button id="cloud-connect" class="button primary" hidden>Connect and upload</button><button id="cloud-sync" class="button secondary" hidden>Sync now</button><button id="cloud-review" class="button secondary" hidden>Review changes</button><button id="cloud-signout" class="link-button" hidden>Sign out</button></div>`;
-  $('#storage-error').after(host);
+  $('#account-menu').append(host, $('#open-key'), $('.page-footer'));
+  function setAccountOpen(open, focus = false) {
+    $('#account-menu').hidden = !open;
+    $('#account-toggle').setAttribute('aria-expanded', String(open));
+    if (focus) $('#account-toggle').focus({preventScroll:true});
+  }
+  $('#account-toggle').onclick = () => setAccountOpen($('#account-menu').hidden);
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.account-wrapper')) setAccountOpen(false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !$('#account-menu').hidden) { setAccountOpen(false, true); event.preventDefault(); }
+  });
+  $('#open-key').addEventListener('click', () => setAccountOpen(false));
   const dialogs = document.createElement('div');
   dialogs.innerHTML = `<dialog id="login-dialog" aria-labelledby="login-title"><form id="login-form">
     <div class="dialog-heading"><h2 id="login-title">Sign in to your records</h2><button type="button" class="close-button" id="login-close" aria-label="Close sign in">×</button></div>
@@ -49,7 +62,11 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
     $('#cloud-sync').disabled = next === 'syncing';
     $('#cloud-connect').hidden = next !== 'connect';
     $('#cloud-review').hidden = next !== 'conflict';
-    $('.local-label').textContent = next === 'saved' ? 'Saved online' : state.cloud ? 'Online saving' : 'Stored on this device';
+    const brief = next === 'saved' ? 'Saved online' : next === 'syncing' ? 'Syncing' : ['waiting','error','conflict','connect','mismatch'].includes(next) ? 'Needs attention' : session ? 'Signed in' : 'Not signed in';
+    $('#account-dot').dataset.status = next;
+    $('#account-toggle').setAttribute('aria-label', `Account: ${brief}`);
+    $('#account-toggle').title = brief;
+    if (['connect', 'mismatch'].includes(next)) setAccountOpen(true);
     if (state.cloud) $('.page-footer p').textContent = 'Records and your bonus key sync to your account. Changes waiting to sync are saved only on this device. Keep regular backups.';
   }
   async function sync(connect = false) {
@@ -66,7 +83,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
     render('waiting');
     clearTimeout(queued); queued = setTimeout(() => sync(), 400);
   }
-  $('#cloud-login').onclick = () => { message('#login-error', ''); $('#login-dialog').showModal(); };
+  $('#cloud-login').onclick = () => { setAccountOpen(false); message('#login-error', ''); $('#login-dialog').showModal(); };
   $('#login-close').onclick = () => $('#login-dialog').close();
   $('#login-form').onsubmit = async event => {
     event.preventDefault(); $('#login-submit').disabled = true; message('#login-error', '');
@@ -115,6 +132,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
   }
   $('#cloud-review').onclick = () => {
     const conflict = engine.conflict; if (!conflict) return;
+    setAccountOpen(false);
     $('#conflict-items').replaceChildren(); message('#conflict-error', '');
     for (const item of conflict.conflicts) {
       const section = document.createElement('section'); section.className = 'conflict-item';

@@ -1,9 +1,10 @@
 import './style.css';
-import { GROUPS, MODES, blankEntry, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState } from './model.js';
+import { GROUPS, MODES, blankEntry, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
 import { loadState, saveState, STORAGE_KEY } from './storage.js';
 import { monthPeriod, selectExport, exportFilename, periodLabel } from './export-selection.js';
 import { documentOf, equal } from './cloud-model.js';
 import { installCloudUI } from './cloud-ui.js';
+import { ENTRY_DATE_KEY, readEntryDate, stepDate } from './entry-date.js';
 
 const $ = (selector) => document.querySelector(selector);
 const escape = (value) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,37 +13,41 @@ let state = initialState(), raw = null, storageError = '', editing = null, editi
 try { ({state,raw} = loadState(localStorage)); }
 catch { storageError = 'Saved records could not be read. Existing storage has been left untouched. Download the stored data below for recovery, or restore a valid backup.'; }
 const fmt = (cents) => money(cents,state.key.currency);
+let entryDate;
+try { entryDate = readEntryDate(sessionStorage); } catch { entryDate = localDate(); }
 
 $('#app').innerHTML = `
-  <header class="topbar"><div class="brand"><span class="brand-mark">${icon('glasses')}</span><span>Dispensing<span class="brand-light"> Record</span></span></div><span class="local-label"><span class="dot"></span>Stored on this device</span></header>
+  <header class="topbar"><div class="brand"><span class="brand-mark">${icon('glasses')}</span><span>Dispensing<span class="brand-light"> Record</span></span></div><div class="account-wrapper"><button id="account-toggle" class="account-toggle" aria-expanded="false" aria-controls="account-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><span>Account</span><span id="account-dot" class="dot" aria-hidden="true"></span></button><div id="account-menu" class="account-menu" aria-label="Account settings" hidden></div></div></header>
   <main>
-    <div class="page-heading"><div><p class="eyebrow">YOUR DAILY DISPENSING LOG</p><h1>A little less paperwork.</h1><p class="subtitle">Record the dispense. We’ll take care of the bonus.</p></div><button id="export" class="button primary">${icon('download')}Export records</button></div>
+    <h1 class="sr-only">Dispensing Record</h1>
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <div id="storage-error" class="warning" role="alert" hidden></div>
+    <p id="locked-message" class="locked-message" hidden>Open Account to sign in to your records.</p>
     <section class="stats" aria-label="Record summary">
       <div class="stat"><span class="stat-label">Total bonus <span id="total-status"></span></span><strong id="total">€0.00</strong><span id="total-caption" class="stat-note">Across all records</span></div>
-      <div class="stat"><span class="stat-label">Dispensing records</span><strong id="count">0</strong><span class="stat-note">Everything in one place</span></div>
-      <div class="stat"><span class="stat-label">Recorded today</span><strong id="today-count">0</strong><span id="today-label" class="stat-note"></span></div>
+      <div class="stat"><span class="stat-label">Dispensing records</span><strong id="count">0</strong></div>
+      <div class="stat"><span class="stat-label">Recorded today</span><strong id="today-count">0</strong></div>
     </section>
+    <div class="view-toolbar"><div class="view-tabs" role="tablist" aria-label="Workspace"><button id="tab-entry" role="tab" aria-selected="true" aria-controls="entry-view">New dispense</button><button id="tab-records" role="tab" aria-selected="false" aria-controls="records-view" tabindex="-1">Records</button></div><button id="export" class="button secondary" aria-label="Export records">${icon('download')}<span>Export</span></button></div>
     <div class="workspace">
-      <section class="panel form-panel" aria-labelledby="form-title">
-        <div class="panel-heading"><div class="heading-icon">${icon('plus')}</div><div><h2 id="form-title">New dispense</h2><p>One record for each dispense.</p></div></div>
+      <section id="entry-view" class="panel form-panel" role="tabpanel" aria-labelledby="tab-entry">
+        <h2 id="form-title" class="sr-only">New dispense</h2>
         <form id="entry-form">
-          <div class="two-col"><label class="field">Date<input type="date" name="date" required min="1900-01-01" max="9999-12-31"></label><label class="field">Customer number<input name="number" type="text" maxlength="80" placeholder="e.g. 001234" required autocomplete="off"></label></div>
+          <div class="two-col"><div class="field"><label for="dispense-date">Date</label><div class="date-stepper"><button id="previous-date" type="button" class="date-arrow" aria-label="Previous day">‹</button><input id="dispense-date" type="date" name="date" required min="1900-01-01" max="9999-12-31"><button id="next-date" type="button" class="date-arrow" aria-label="Next day">›</button></div></div><label class="field">Customer number<input name="number" type="text" maxlength="80" placeholder="e.g. 001234" required autocomplete="off"></label></div>
           <label class="field">Customer name<input name="name" maxlength="160" placeholder="Enter customer name" required autocomplete="off"></label>
           <fieldset><legend>Dispense type <span>Select all that apply</span></legend><div class="chips types">${choices('types')}</div></fieldset>
           <fieldset><legend>Lens set</legend><div class="segmented"><label><input type="radio" name="set" value="first" checked><span>1st set of lenses</span></label><label><input type="radio" name="set" value="second"><span>2nd set of lenses</span></label></div></fieldset>
-          <fieldset><legend>Add-ons <span>Optional</span></legend><div class="chips">${choices('addons')}</div><p class="field-hint">Select each purchased add-on once. Combined options, such as Polaroid 1.6, have their own rate.</p></fieldset>
+          <fieldset><legend>Add-ons <span>Optional</span></legend><div class="chips">${choices('addons')}</div></fieldset>
           <details class="offers"><summary>Special offers <span>Optional</span></summary><div class="offer-list">${choices('offers',true)}</div></details>
           <div id="bonus-preview" class="bonus-preview" aria-live="polite"></div>
           <div id="form-error" class="inline-error" role="alert" hidden></div>
           <div class="form-actions"><button id="save-entry" type="submit" class="button primary">${icon('plus')}Save dispense</button><button id="cancel-edit" class="button secondary" type="button" hidden>Cancel edit</button></div>
         </form>
       </section>
-      <section class="panel records-panel" aria-labelledby="records-title"><div class="records-heading"><div><h2 id="records-title">Your records <span id="record-badge" class="badge">0</span></h2><p>Saved here, ready whenever you need them.</p></div><button id="open-key" class="button text-button">${icon('book')}Bonus key</button></div>
+      <section id="records-view" class="panel records-panel" role="tabpanel" aria-labelledby="tab-records" hidden><div class="records-heading"><h2 id="records-title">Records <span id="record-badge" class="badge">0</span></h2><button id="open-key" class="button text-button">${icon('book')}Bonus key</button></div>
         <div class="records-toolbar"><label class="search-field"><span class="sr-only">Search records</span><input id="search" type="search" placeholder="Search by name or customer number"></label><span id="shown-count"></span></div>
         <div id="records"></div>
-        <div class="records-footer"><span id="footer-summary"></span><span>Export all records or choose a bonus period.</span></div>
+        <div class="records-footer"><span id="footer-summary"></span></div>
       </section>
     </div>
     <footer class="page-footer"><p>${icon('check')}Records stay in this browser. Back up regularly; clearing browser data removes them.</p><div><button id="backup" class="link-button">Download backup</button><button id="restore" class="link-button">Restore backup</button><input id="restore-file" type="file" accept="application/json,.json" hidden><button id="raw-backup" class="link-button" hidden>Download stored data</button></div></footer>
@@ -64,7 +69,8 @@ $('#app').innerHTML = `
 function choices(group, long=false) {
   return GROUPS[group].map(label => `<label class="${long?'offer-choice':'chip'}"><input type="checkbox" name="${group}" value="${escape(label)}"><span>${escape(label)}</span></label>`).join('');
 }
-function notify(message) { $('#notice').textContent = message; $('#notice').hidden = false; }
+let noticeTimer;
+function notify(message) { $('#notice').textContent = message; $('#notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { $('#notice').hidden = true; }, 5000); }
 function showError(target,message) { target.textContent = message; target.hidden = !message; }
 function displayStorageError() { showError($('#storage-error'),storageError); $('#raw-backup').hidden = !storageError; }
 function commit(next) {
@@ -83,7 +89,7 @@ function readEntry() {
   const form = new FormData($('#entry-form'));
   return { id: editing || '', date: form.get('date'), number: form.get('number').trim(), name: form.get('name').trim(), set: form.get('set'), ...Object.fromEntries(Object.keys(GROUPS).map(group => [group,form.getAll(group)])) };
 }
-function fillEntry(entry=blankEntry()) {
+function fillEntry(entry={...blankEntry(),date:entryDate}) {
   const form = $('#entry-form');
   for (const name of ['date','number','name']) form.elements[name].value = entry[name];
   for (const input of form.querySelectorAll('input[type="checkbox"]')) input.checked = entry[input.name].includes(input.value);
@@ -94,6 +100,43 @@ function fillEntry(entry=blankEntry()) {
   $('#cancel-edit').hidden = !editing;
   showError($('#form-error'),'');
   updatePreview();
+  updateDateButtons();
+}
+function updateDateButtons() {
+  const value = $('#dispense-date').value;
+  $('#previous-date').disabled = value === '1900-01-01';
+  $('#next-date').disabled = value === '9999-12-31';
+}
+function rememberDate() {
+  const value = $('#dispense-date').value;
+  if (!editing && validDate(value)) {
+    entryDate = value;
+    try { sessionStorage.setItem(ENTRY_DATE_KEY, value); } catch { /* In-memory date still works. */ }
+  }
+  updateDateButtons();
+}
+$('#dispense-date').addEventListener('change', rememberDate);
+for (const [id, days] of [['previous-date', -1], ['next-date', 1]]) $(`#${id}`).addEventListener('click', () => {
+  const value = $('#dispense-date').value;
+  $('#dispense-date').value = stepDate(validDate(value) ? value : entryDate, days);
+  rememberDate();
+});
+function showView(view) {
+  for (const name of ['entry', 'records']) {
+    const selected = name === view;
+    $(`#${name}-view`).hidden = !selected;
+    $(`#tab-${name}`).setAttribute('aria-selected', String(selected));
+    $(`#tab-${name}`).tabIndex = selected ? 0 : -1;
+  }
+}
+for (const name of ['entry', 'records']) {
+  $(`#tab-${name}`).onclick = () => showView(name);
+  $(`#tab-${name}`).onkeydown = event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'entry' : event.key === 'End' ? 'records' : name === 'entry' ? 'records' : 'entry';
+    showView(next); $(`#tab-${next}`).focus();
+  };
 }
 function updatePreview() {
   const result = calculate(readEntry(),state.key);
@@ -105,18 +148,18 @@ function renderRecords() {
   const totals = summarise(state.entries,state.key);
   $('#total').textContent = fmt(totals.cents);
   $('#total-status').textContent = totals.pending ? '· confirmed' : '';
-  $('#total-caption').textContent = totals.pending ? `${totals.pending} pending ${totals.pending===1?'record excluded':'records excluded'}` : 'Across all records';
+  $('#total-caption').textContent = totals.pending ? `${totals.pending} pending ${totals.pending===1?'record excluded':'records excluded'}` : '';
+  $('#total-caption').hidden = !totals.pending;
   $('#count').textContent = state.entries.length;
   $('#record-badge').textContent = state.entries.length;
   $('#today-count').textContent = state.entries.filter(e=>e.date===localDate()).length;
-  $('#today-label').textContent = dateText(localDate());
   $('#export').disabled = !state.entries.length;
   const query = $('#search').value.trim().toLocaleLowerCase();
   const entries = state.entries.filter(e=>`${e.name} ${e.number}`.toLocaleLowerCase().includes(query)).slice().sort((a,b)=>b.date.localeCompare(a.date));
   $('#shown-count').textContent = `${entries.length} ${entries.length===1?'record':'records'}`;
   $('#footer-summary').textContent = `Total ${totals.pending?'confirmed bonus':'bonus'}: ${fmt(totals.cents)}`;
   if (!entries.length) {
-    $('#records').innerHTML = `<div class="empty-state"><span class="empty-icon">${icon('book')}</span><h3>${query?'No matching records':'A fresh page for your day'}</h3><p>${query?'Try a different name or customer number.':'Add your first dispense. Your records and running bonus will appear here.'}</p>${query?'':'<span class="empty-caption">Every dispense, neatly recorded.</span>'}</div>`;
+    $('#records').innerHTML = `<div class="empty-state"><h3>${query?'No matching records':'No records yet'}</h3>${query?'<p>Try a different name or customer number.</p>':''}</div>`;
     return;
   }
   $('#records').innerHTML = `<div class="table-scroll"><table class="record-table"><thead><tr><th>Date / customer</th><th>Dispense details</th><th class="bonus-heading">Bonus</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${entries.map(entry=>{
@@ -134,9 +177,12 @@ $('#entry-form').addEventListener('submit', event => {
     entry.id ||= crypto.randomUUID();
     const entries = editing ? state.entries.map(e=>e.id===editing?entry:e) : [...state.entries,entry];
     if (!commit({...state,entries})) return;
+    rememberDate();
     notify(editing ? 'Record updated.' : 'Dispense saved on this device.');
     editing=null; fillEntry(); renderRecords();
-    $('#entry-form').elements.number.focus();
+    showView('entry');
+    $('#entry-form').elements.number.focus({preventScroll:true});
+    $('.form-panel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
   } catch(error) { showError($('#form-error'),error.message); }
 });
 $('#cancel-edit').addEventListener('click',()=>{editing=null;fillEntry();});
@@ -146,7 +192,7 @@ $('#records').addEventListener('click',event=>{
   const entry=state.entries.find(e=>e.id===button.dataset.id); if(!entry)return;
   if(button.dataset.action==='edit') {
     if (editing && editing!==entry.id && !confirm('Discard the current edit and open this record?')) return;
-    editing=entry.id;editingOriginal=structuredClone(entry);fillEntry(entry);$('.form-panel').scrollIntoView({behavior:'smooth',block:'start'});$('#entry-form').elements.name.focus({preventScroll:true});
+    editing=entry.id;editingOriginal=structuredClone(entry);showView('entry');fillEntry(entry);$('.form-panel').scrollIntoView({behavior:'smooth',block:'start'});$('#entry-form').elements.name.focus({preventScroll:true});
   } else if(confirm(`Remove the record for ${entry.name} (${entry.number})?`)) {
     if(!commit({...state,entries:state.entries.filter(e=>e.id!==entry.id)}))return;
     if(editing===entry.id){editing=null;fillEntry();}
@@ -289,7 +335,8 @@ cloud = installCloudUI({
     renderRecords(); updatePreview(); return state;
   },
   locked: value => {
-    for (const selector of ['.stats', '.workspace', '.page-footer', '#export']) $(selector).hidden = value;
+    for (const selector of ['.stats', '.workspace', '.page-footer', '.view-toolbar', '#open-key']) $(selector).hidden = value;
+    $('#locked-message').hidden = !value;
     if (value) for (const selector of ['#key-dialog', '#export-dialog']) $(selector).close();
   },
   backup: downloadBackup, notify,

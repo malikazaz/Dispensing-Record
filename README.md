@@ -22,11 +22,12 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 
 ## Use the app
 
-1. Enter date, customer number and customer name. Customer numbers remain text, preserving leading zeros.
+1. Enter date, customer number and customer name. Customer numbers remain text, preserving leading zeros. Use the arrows beside the date to move one day backward/forward, or tap the date to use the calendar.
 2. Tick all relevant paper columns, choose the lens set and select purchased add-ons.
 3. Open **Special offers** when relevant. The bonus and its breakdown update immediately.
-4. Save the dispense. Edit or remove it from **Your records**. Removing asks for confirmation.
-5. **Export records** opens the bonus-report dialog. Choose **Excel (.xlsx)** or **PDF (.pdf)**, then **This month**, **Last month**, **Custom dates** or **All records**. Optionally name the section, review its record count and bonus total, and select **Download Excel** or **Download PDF**. **Download backup** saves all records and the bonus key in a restorable JSON file.
+4. Save the dispense. The form clears customer/dispense choices, keeps the selected date and scrolls back to the top of the form for the next customer. The date also survives a page refresh in the same tab. Editing an older record does not change your new-entry date. Open **Records** to search, edit or remove saved entries; removing asks for confirmation.
+5. **Export** opens the bonus-report dialog. Choose **Excel (.xlsx)** or **PDF (.pdf)**, then **This month**, **Last month**, **Custom dates** or **All records**. Optionally name the section, review its record count and bonus total, and select **Download Excel** or **Download PDF**.
+6. Tap **Account** in the header for sign-in, sync status, **Sync now**, **Bonus key**, and backup/restore controls. **Download backup** saves all records and the bonus key in a restorable JSON file. The small account indicator is green after an online save and amber when attention is needed; open the menu for the full status.
 
 ### Export a bonus period
 

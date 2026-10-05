@@ -37,7 +37,7 @@ For local development, set the same environment variables and run `node scripts/
 
 ## First sign-in and existing records
 
-On her original phone/browser, download a JSON backup first. Sign in with her **app** email/password. If this browser has existing records or a customised key, select **Connect and upload** to combine them with the online copy. A blank browser automatically downloads its account's online records. Wait for **Saved online and on this device** before relying on recovery from another device.
+On her original phone/browser, open **Account** in the header and download a JSON backup first. Sign in from that menu with her **app** email/password. If this browser has existing records or a customised key, select **Connect and upload** to combine them with the online copy. A blank browser automatically downloads its account's online records. Wait for **Saved online and on this device** in the Account menu before relying on recovery from another device. **Sync now**, sign-out, bonus-key settings and backups are also in this menu; the header's small status indicator stays visible when the menu is closed.
 
 Records, edits, removals and the bonus key all sync. Changing the key continues to recalculate all records. Backups contain only records and the key, without login tokens or sync bookkeeping. Restoring a backup while connected intentionally replaces the device records and syncs that change online after confirmation. Exported Excel/PDF files continue to be generated on the device.
 

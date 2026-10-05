@@ -1,3 +1,4 @@
+import { openAccount, showRecords, showEntry } from './ui-helpers.js';
 import { test,expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import fs from 'node:fs/promises';
@@ -6,6 +7,7 @@ import { initialState, blankEntry } from '../../src/model.js';
 import { readPdf } from '../helpers/read-pdf.js';
 async function select(page,label){await page.locator('label').filter({has:page.locator(`input[value="${label}"]`)}).click();}
 async function startRecord(page,name='Alex Morgan',number='001234'){
+  await showEntry(page);
   await page.getByLabel('Date',{exact:true}).fill('2026-10-05');
   await page.getByLabel('Customer number',{exact:true}).fill(number);
   await page.getByLabel('Customer name',{exact:true}).fill(name);
@@ -13,14 +15,14 @@ async function startRecord(page,name='Alex Morgan',number='001234'){
 }
 test('save, persist, edit, export exact paper table and remove on desktop and mobile',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('/');await expect(page.getByText('A fresh page for your day')).toBeVisible();
+  await page.goto('/');await showRecords(page);await expect(page.getByText('No records yet')).toBeVisible();
   await expect(page.locator('#export')).toBeDisabled();
   await startRecord(page);await select(page,'Polaroid');await select(page,'Elite');
   await expect(page.locator('#bonus-preview')).toContainText('€5.00');
   await page.getByRole('button',{name:'Save dispense',exact:true}).click();
   await expect(page.locator('#total')).toHaveText('€5.00');
   await page.reload();await expect(page.locator('#records')).toContainText('Alex Morgan');
-  await page.getByRole('button',{name:'Edit Alex Morgan',exact:true}).click();
+  await showRecords(page);await page.getByRole('button',{name:'Edit Alex Morgan',exact:true}).click();
   await page.getByText('Special offers',{exact:false}).first().click();await select(page,'Golden Ticket');
   await expect(page.locator('#bonus-preview')).toContainText('€7.00');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
@@ -33,7 +35,7 @@ test('save, persist, edit, export exact paper table and remove on desktop and mo
   const sheet=workbook.getWorksheet('Dispensing Record');expect(sheet.getCell('B5').value).toBe('001234');expect(sheet.getCell('Q5').value).toBe(7);
   expect(sheet.getRow(4).values.slice(1)).toEqual(['Date','Cust No','CX Name','SV','BIF','Vari','241','Other','RE','70','95','130','160','190','240','Addons','Bonus']);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
-  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Remove Alex Morgan',exact:true}).click();
+  page.once('dialog',dialog=>dialog.accept());await showRecords(page);await page.getByRole('button',{name:'Remove Alex Morgan',exact:true}).click();
   await expect(page.locator('#count')).toHaveText('0');await expect(page.locator('#total')).toHaveText('€0.00');
   expect(errors).toEqual([]);
 });
@@ -47,20 +49,20 @@ test('second-pair SV with many add-ons pays one flat five euro bonus',async({pag
 });
 test('bonus key changes persist and recalculate existing rows; blank rates remain pending',async({page})=>{
   await page.goto('/');await startRecord(page);await select(page,'Elite');await page.getByRole('button',{name:'Save dispense',exact:true}).click();
-  await page.getByRole('button',{name:'Bonus key',exact:true}).click();
+  await openAccount(page);await page.getByRole('button',{name:'Bonus key',exact:true}).click();
   await page.getByLabel('Elite 1st set rate',{exact:true}).fill('2.50');
   page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Save bonus key',exact:true}).click();
   await expect(page.locator('#total')).toHaveText('€2.50');
-  await page.getByRole('button',{name:'Bonus key',exact:true}).click();await page.getByLabel('Elite 1st set rate',{exact:true}).fill('');
+  await openAccount(page);await page.getByRole('button',{name:'Bonus key',exact:true}).click();await page.getByLabel('Elite 1st set rate',{exact:true}).fill('');
   page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Save bonus key',exact:true}).click();
   await expect(page.locator('#total-caption')).toHaveText('1 pending record excluded');await expect(page.locator('#records')).toContainText('Pending');
   await page.reload();await expect(page.locator('#total-caption')).toHaveText('1 pending record excluded');
 });
 test('JSON backup restores leading-zero IDs and rejects damaged data',async({page})=>{
   await page.goto('/');await startRecord(page);await page.getByRole('button',{name:'Save dispense',exact:true}).click();
-  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download backup',exact:true}).click();const backup=await pending;
+  const pending=page.waitForEvent('download');await openAccount(page);await page.getByRole('button',{name:'Download backup',exact:true}).click();const backup=await pending;
   const buffer=await fs.readFile(await backup.path());
-  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Remove Alex Morgan',exact:true}).click();
+  page.once('dialog',d=>d.accept());await showRecords(page);await page.getByRole('button',{name:'Remove Alex Morgan',exact:true}).click();
   page.once('dialog',d=>d.accept());await page.locator('#restore-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer});
   await expect(page.locator('#records')).toContainText('#001234');
   await page.locator('#restore-file').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{"version":99}')});
@@ -89,7 +91,7 @@ test('capture review images with synthetic records',async({page},testInfo)=>{
   await page.locator('#notice').evaluate(el=>el.hidden=true);await page.evaluate(()=>document.activeElement.blur());
   await fs.mkdir(process.env.SCREENSHOT_DIR,{recursive:true});
   await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`${testInfo.project.name}.png`),fullPage:true});
-  await page.getByRole('button',{name:'Bonus key',exact:true}).click();await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`${testInfo.project.name}-key.png`)});
+  await openAccount(page);await page.getByRole('button',{name:'Bonus key',exact:true}).click();await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`${testInfo.project.name}-key.png`)});
 });
 
 test('custom period exports only inclusive dates as its own named section with a matching total',async({page},testInfo)=>{
@@ -99,7 +101,7 @@ test('custom period exports only inclusive dates as its own named section with a
   state.entries.push({...blankEntry(),id:'pending',date:'2026-10-10',name:'Pending customer',number:'0005',types:['SV'],offers:['2nd pair SV']});
   await page.goto('/');await page.evaluate(data=>localStorage.setItem('dispensing-record:v1',JSON.stringify(data)),state);await page.reload();
   // A record-list search must not silently narrow the bonus claim.
-  await page.getByRole('searchbox').fill('Customer 0');
+  await showRecords(page);await page.getByRole('searchbox').fill('Customer 0');
   await page.getByRole('button',{name:'Export records',exact:true}).click();
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('custom');
   await page.getByLabel('Start date',{exact:true}).fill('2026-10-01');await page.getByLabel('End date',{exact:true}).fill('2026-10-31');

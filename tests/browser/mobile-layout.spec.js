@@ -1,3 +1,4 @@
+import { openAccount, showRecords, showEntry } from './ui-helpers.js';
 import {test,expect} from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -5,7 +6,7 @@ import fs from 'node:fs/promises';
 async function checkFields(page,selector) {
   const fields=await page.locator(selector).evaluateAll(inputs=>inputs.map(input=>{
     const rect=input.getBoundingClientRect(),parent=input.closest('.field').getBoundingClientRect(),style=getComputedStyle(input);
-    return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,width:rect.width,height:rect.height,parentLeft:parent.left,parentRight:parent.right,font:parseFloat(style.fontSize)};
+    return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,width:rect.width,height:rect.height,parentLeft:parent.left,parentRight:parent.right,parentWidth:parent.width,font:parseFloat(style.fontSize)};
   }));
   expect(fields).toHaveLength(2);
   for(const field of fields){
@@ -18,7 +19,7 @@ async function checkFields(page,selector) {
   expect(Math.abs(first.height-second.height)).toBeLessThanOrEqual(1);
   if(page.viewportSize().width<=540){
     expect(first.bottom).toBeLessThan(second.top);
-    expect(Math.abs(first.width-second.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(first.parentWidth-second.parentWidth)).toBeLessThanOrEqual(1);
     for(const field of fields){expect(field.height).toBe(48);expect(field.font).toBeGreaterThanOrEqual(16);}
   }
 }
@@ -42,7 +43,7 @@ test('date and customer number fit their own fields at phone, tablet and desktop
   }
   await page.getByRole('button',{name:'Save dispense',exact:true}).click();
   await expect(page.locator('#records')).toContainText('#001234');
-  await page.getByRole('button',{name:'Edit Layout check',exact:true}).click();
+  await showRecords(page);await page.getByRole('button',{name:'Edit Layout check',exact:true}).click();
   await expect(page.getByLabel('Date',{exact:true})).toHaveValue('2026-09-30');
 });
 

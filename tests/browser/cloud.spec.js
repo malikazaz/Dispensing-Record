@@ -1,3 +1,4 @@
+import { openAccount, showRecords, showEntry } from './ui-helpers.js';
 import { test, expect } from '@playwright/test';
 import { initialState, blankEntry } from '../../src/model.js';
 
@@ -38,7 +39,7 @@ async function mock(context, server = { row: null, fail: false }, userSession = 
   return server;
 }
 async function login(page, email = 'tester@example.com') {
-  await page.locator('#cloud-login').click(); await page.getByLabel('Email', { exact: true }).fill(email);
+  await openAccount(page);await page.locator('#cloud-login').click(); await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill('test-password-123'); await page.locator('#login-submit').click();
 }
 async function add(page, name = 'New customer') {
@@ -72,18 +73,18 @@ test('failed upload survives reload, retries and includes bonus-key changes and 
   await add(page, 'Offline customer'); await expect(page.locator('#cloud-status')).toContainText('Not saved online yet');
   await page.reload(); await expect(page.locator('#records')).toContainText('Offline customer');
   await expect(page.locator('#cloud-status')).toContainText('Not saved online yet');
-  server.fail = false; await page.locator('#cloud-sync').click(); await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
-  await page.locator('#open-key').click(); await page.getByLabel('Elite 1st set rate', { exact: true }).fill('4.50');
+  server.fail = false; await openAccount(page);await page.locator('#cloud-sync').click(); await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
+  await openAccount(page);await page.locator('#open-key').click(); await page.getByLabel('Elite 1st set rate', { exact: true }).fill('4.50');
   page.once('dialog', d => d.accept()); await page.getByRole('button', { name: 'Save bonus key', exact: true }).click();
   await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.'); expect(server.row.payload.key.rates['addons:Elite'].first).toBe(450);
-  page.once('dialog', d => d.accept()); await page.getByRole('button', { name: 'Remove Offline customer' }).click();
+  page.once('dialog', d => d.accept()); await showRecords(page);await page.getByRole('button', { name: 'Remove Offline customer' }).click();
   await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.'); expect(server.row.payload.entries).toHaveLength(0);
 });
 
 test('sign out hides cached records and another account cannot inherit them', async ({ page, context }) => {
   const server = await mock(context, { row: { payload: { ...initialState(), entries: [item('a', 'Private customer')] }, version: 1 }, fail: false }, session());
   await page.goto('/'); await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
-  await page.locator('#cloud-signout').click(); await expect(page.locator('.workspace')).toBeHidden();
+  await openAccount(page);await page.locator('#cloud-signout').click(); await expect(page.locator('.workspace')).toBeHidden();
   await page.reload(); await expect(page.locator('.workspace')).toBeHidden();
   await login(page, 'other@example.com'); await expect(page.locator('#cloud-status')).toContainText('different account');
   await expect(page.locator('.workspace')).toBeHidden(); expect(server.row.payload.entries).toHaveLength(1);
@@ -92,18 +93,18 @@ test('sign out hides cached records and another account cannot inherit them', as
 test('conflicting record edits require review and preserve the chosen version', async ({ page, context }) => {
   const server = await mock(context, { row: { payload: { ...initialState(), entries: [item('a', 'Original')] }, version: 1 }, fail: false }, session());
   await page.goto('/'); await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
-  await page.getByRole('button', { name: 'Edit Original', exact: true }).click();
+  await showRecords(page);await page.getByRole('button', { name: 'Edit Original', exact: true }).click();
   await page.getByLabel('Customer name', { exact: true }).fill('Device version');
   server.row.payload.entries[0].name = 'Online version'; server.row.version++;
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.locator('#cloud-review')).toBeVisible(); await page.locator('#cloud-review').click();
+  await openAccount(page);await expect(page.locator('#cloud-review')).toBeVisible(); await page.locator('#cloud-review').click();
   await expect(page.locator('#conflict-items')).toContainText('Device version'); await expect(page.locator('#conflict-items')).toContainText('Online version');
   await page.locator('#conflict-remote').click(); await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
   await expect(page.locator('#records')).toContainText('Online version'); expect(server.row.payload.entries[0].name).toBe('Online version');
 });
 
 test('login and cloud panel fit narrow phone screens without overlap', async ({ page, context }) => {
-  await mock(context); await page.goto('/'); await page.locator('#cloud-login').click();
+  await mock(context); await page.goto('/'); await openAccount(page);await page.locator('#cloud-login').click();
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(page.locator('#login-submit')).toBeVisible();
