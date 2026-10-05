@@ -66,8 +66,8 @@ export function pdfDefinition(state, options = {mode:'all'}) {
       {text:'BONUS KEY',pageBreak:'before',fontSize:22,bold:true,color:GREEN,margin:[0,0,0,10]},
       {text:`Currency: ${state.key.currency}. Key ${state.key.confirmed ? 'confirmed' : 'not confirmed'}. Rates at the time of export.`,margin:[0,0,0,12]},
       {table:{headerRows:1,keepWithHeaderRows:1,dontBreakRows:true,widths:[100,280,100,100,'*'],body:keyBody},layout:{...layout,paddingTop:()=>3.5,paddingBottom:()=>3.5}},
-      {text:'Both lens sets contribute to the total; shared frames use first-set rates once. Second-pair offers pay one flat amount for that set, retaining first-set and shared frame bonuses. For older single-set records, the flat amount replaces the whole bonus. Golden Ticket adds its rate per add-on in the selected set.',margin:[0,12,0,6],fontSize:9},
-      {text:'With 241 selected, only the highest-priced selected frame earns a frame bonus. Lens add-ons are calculated separately. Combined add-on choices count once. Unpriced paper columns carry no additional bonus. Pending amounts are not confirmed zero bonuses.',margin:[0,0,0,6],fontSize:9},
+      {text:'Both lens sets contribute to the total; shared frames use first-set rates once. Second-pair flat offers require SV, not varifocals; first-set and shared frame bonuses remain. For older single-set records, the flat amount replaces the whole bonus. Golden Ticket counts paid add-ons, including paid third-pair varifocals; free 241 varifocals are excluded.',margin:[0,12,0,6],fontSize:9},
+      {text:'241: only the highest-priced frame earns a bonus. Second-set Elite, Tailormade and Supereader are recorded as free, with no bonus. Other add-ons use normal rates. Combined choices count once; unpriced columns add zero. Pending bonuses are excluded.',margin:[0,0,0,6],fontSize:9},
       {text:`Source / notes: ${state.key.source}`,fontSize:9,color:'#657a5a'},
     ],
   };

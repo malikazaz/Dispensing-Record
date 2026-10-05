@@ -32,6 +32,9 @@ export function lensSetsOf(entry) {
   sets[entry.set] = { addons: [...entry.addons], offers: [...entry.offers] };
   return sets;
 }
+export function isFreeVarifocal(entry, addon) {
+  return entry.set === 'second' && entry.types.includes('241') && ['Elite','Tailormade','Supereader'].includes(addon);
+}
 export function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T12:00:00Z`);
@@ -90,12 +93,13 @@ export function calculate(entry, key) {
 }
 function calculateSet(entry, key, skipTypes=false) {
   const issues = [];
+  const paidAddons = entry.addons.filter(addon => !isFreeVarifocal(entry,addon));
   if (!entry.types.length) issues.push('Choose a dispense type.');
   if (!key.confirmed) issues.push('Check and confirm the bonus key.');
   // The second-pair SV offer becomes the single flat offer whenever add-ons are present.
   // Both checkboxes together must never award 3 + 5 or two flat payments.
   let effectiveOffers = [...entry.offers];
-  if (effectiveOffers.includes('2nd pair SV') && (entry.addons.length || effectiveOffers.includes('2nd-pair add-ons'))) {
+  if (effectiveOffers.includes('2nd pair SV') && (paidAddons.length || effectiveOffers.includes('2nd-pair add-ons'))) {
     effectiveOffers = effectiveOffers.filter(x => x !== '2nd pair SV');
     if (!effectiveOffers.includes('2nd-pair add-ons')) effectiveOffers.push('2nd-pair add-ons');
   }
@@ -104,7 +108,7 @@ function calculateSet(entry, key, skipTypes=false) {
   if (replacements.length > 1) issues.push('Only one replacement offer can apply to a row. Split or review this combination.');
   const replace = replacements[0]?.mode;
   if (entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x)) && entry.set !== 'second') issues.push('Second-pair offers require the 2nd lens set.');
-  if (entry.offers.includes('2nd pair SV') && !entry.types.includes('SV')) issues.push('The 2nd pair SV offer requires SV.');
+  if (entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x)) && (!entry.types.includes('SV') || entry.addons.some(addon => ['Elite','Tailormade','Supereader'].includes(addon)))) issues.push('Second-pair offers apply only to single vision, not varifocals.');
   if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && !entry.types.includes('241')) issues.push('The 3rd-pair offer requires the 241 column.');
   if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x))) issues.push('Second-pair and third-pair offers belong on separate records.');
   if (entry.offers.some(x => ['2nd-pair add-ons','Golden Ticket'].includes(x)) && !entry.addons.length) issues.push('This offer requires at least one add-on.');
@@ -116,12 +120,16 @@ function calculateSet(entry, key, skipTypes=false) {
     for (const label of group === 'offers' ? effectiveOffers : entry[group]) {
       if (skipTypes && group === 'types') continue;
       if (group === 'types' && paidFrame && frames.includes(label) && label !== paidFrame) continue;
+      if (group === 'addons' && isFreeVarifocal(entry,label)) {
+        parts.push({label, cents:0, free:true});
+        continue;
+      }
       const rate = key.rates[ruleId(group,label)];
       const skipped = (replace === 'replaceTotal' && group !== 'offers') || (['replaceAddons','perAddonReplace'].includes(replace) && group === 'addons');
       if (skipped) continue;
       if (rate[entry.set] === null) issues.push(`${label}: ${entry.set === 'first' ? '1st' : '2nd'}-set rate missing.`);
       if (!rate.mode) issues.push(`${label}: choose how the offer applies.`);
-      if (rate[entry.set] !== null && rate.mode) parts.push({ label, cents: rate[entry.set] * (['perAddonReplace','perAddonAdd'].includes(rate.mode) ? entry.addons.length : 1) });
+      if (rate[entry.set] !== null && rate.mode) parts.push({ label, cents: rate[entry.set] * (['perAddonReplace','perAddonAdd'].includes(rate.mode) ? paidAddons.length : 1) });
     }
   }
   const subtotal = parts.reduce((sum,p) => sum+p.cents,0);

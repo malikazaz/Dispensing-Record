@@ -41,7 +41,7 @@ test('save, persist, edit, export exact paper table and remove on desktop and mo
 });
 test('second-pair SV with many add-ons pays one flat five euro bonus',async({page})=>{
   await page.goto('/');await startRecord(page);await select(page,'second');
-  for(const addon of ['Polaroid','Reaction','Elite'])await select(page,addon);
+  for(const addon of ['Polaroid','Reaction','Tint'])await select(page,addon);
   await page.locator('.offers summary').click();await select(page,'2nd pair SV');
   await expect(page.locator('#bonus-preview .bonus-line')).toContainText('€5.00');
   await select(page,'2nd-pair add-ons');await expect(page.locator('#bonus-preview .bonus-line')).toContainText('€5.00');

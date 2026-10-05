@@ -22,7 +22,7 @@ test('both lens sets use their own rates with one 241 frame bonus',()=>{
 
 test('second-pair flat and Golden Ticket apply only to the selected set',()=>{
   const entry=record();entry.types.push('SV');
-  entry.lensSets.second={addons:['Polaroid','Elite'],offers:['2nd pair SV','Golden Ticket']};
+  entry.lensSets.second={addons:['Polaroid','Tint'],offers:['2nd pair SV','Golden Ticket']};
   assert.equal(calculate(entry,defaultKey()).cents,1150); // 3 frame + 1.50 first + 5 flat + 2 Golden Ticket
   entry.lensSets.second={addons:[],offers:['2nd pair SV']};
   assert.equal(calculate(entry,defaultKey()).cents,750);

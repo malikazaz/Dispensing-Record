@@ -25,7 +25,7 @@ test('241 awards only the highest-priced frame while retaining add-on bonuses',(
     const result=calculate(entry({set,types:['241','160','190']}),key);
     assert.equal(result.cents,300);
     assert.equal(result.parts.some(part=>part.label==='160'),false);
-    assert.equal(calculate(entry({set,types:['241','240','190','160'],addons:['Elite']}),key).cents,500);
+    assert.equal(calculate(entry({set,types:['241','240','190','160'],addons:['Tint']}),key).cents,400);
   }
   assert.equal(calculate(entry({types:['160','190']}),key).cents,450);
   assert.equal(calculate(entry({types:['241','160']}),key).cents,150);
@@ -46,15 +46,15 @@ test('Golden Ticket ADDS 1 euro per add-on, including combined add-ons once',()=
 });
 test('basic second pair SV uses the supplied 3 euro rate',()=>assert.equal(calculate(entry({set:'second',offers:['2nd pair SV']}),key).cents,300));
 test('any add-ons under second-pair SV automatically produce exactly 5 euros',()=>{
-  for(const addons of [['Tint'],['Polaroid','Reaction','Elite'],GROUPS.addons]){
+  for(const addons of [['Tint'],['Polaroid','Reaction','Tint'],GROUPS.addons.filter(addon=>!['Elite','Tailormade','Supereader'].includes(addon))]){
     assert.equal(calculate(entry({set:'second',addons,offers:['2nd pair SV']}),key).cents,500);
   }
 });
 test('explicit flat offer replaces base, frames and add-ons, not 3+5',()=>{
-  const result=calculate(entry({set:'second',types:['SV','190'],addons:['Polaroid','Reaction','Elite'],offers:['2nd pair SV','2nd-pair add-ons']}),key);
+  const result=calculate(entry({set:'second',types:['SV','190'],addons:['Polaroid','Reaction','Tint'],offers:['2nd pair SV','2nd-pair add-ons']}),key);
   assert.equal(result.cents,500);assert.deepEqual(result.parts,[{label:'2nd-pair add-ons',cents:500}]);
 });
-test('second-pair flat offer can apply to varifocal add-ons',()=>assert.equal(calculate(entry({set:'second',types:['Vari'],addons:['Elite'],offers:['2nd-pair add-ons']}),key).cents,500));
+test('second-pair flat offer does not apply to varifocal add-ons',()=>assert.equal(calculate(entry({set:'second',types:['Vari'],addons:['Elite'],offers:['2nd-pair add-ons']}),key).cents,null));
 test('3rd pair adds 2 euros to the selected bonus and requires 241',()=>{
   assert.equal(calculate(entry({types:['241'],addons:['Tint'],offers:['3rd pair half-price combined with 2-4-1']}),key).cents,300);
   assert.equal(calculate(entry({offers:['3rd pair half-price combined with 2-4-1']}),key).cents,null);

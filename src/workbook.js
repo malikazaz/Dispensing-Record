@@ -70,6 +70,7 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
     row.eachCell(bodyCell);row.getCell(3).numFmt=currencyFormat;row.getCell(4).numFmt=currencyFormat;row.height=label.length>35?36:24;
   }
   for(const note of [
+    'Under 241, second-set Elite, Tailormade and Supereader are recorded as free and earn no bonus. Other add-ons retain their usual rates. Second-pair flat offers require SV, not varifocals. Golden Ticket counts paid add-ons only, including paid third-pair varifocals.',
     'Records with both lens sets add each set separately. Shared frame bonuses are counted once using first-set rates. A second-pair flat offer replaces only the second-set amount; first-set and shared frame bonuses remain. Golden Ticket applies to its selected set.',
     'Second-pair SV: with no add-ons, use its basic rate. With any add-ons, use the second-pair flat rate once, replacing the base, frame and individual add-on amounts. Selecting both second-pair offers still pays the flat rate only once.',
     'Golden Ticket adds its rate for each selected add-on. Combined choices (for example Polaroid 1.6) count as one selected add-on. The 3rd-pair offer requires 241 and cannot share a record with second-pair offers.',

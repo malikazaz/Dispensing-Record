@@ -1,6 +1,25 @@
 import { test, expect } from '@playwright/test';
 import { openAccount, showRecords } from './ui-helpers.js';
 
+test('241 keeps both varifocals but credits one, including after reload and editing', async ({ page }) => {
+  await page.goto('/');
+  const select = value => page.locator('label').filter({has:page.locator(`input[value="${value}"]`)}).click();
+  await page.getByLabel('Customer number', { exact: true }).fill('001');
+  await page.getByLabel('Customer name', { exact: true }).fill('Varifocal example');
+  for(const value of ['Vari','241','Supereader','1.74','second','Supereader']) await select(value);
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€7.00');
+  await expect(page.locator('#bonus-preview .breakdown')).toContainText('2nd set · Supereader (free under 241) €0.00');
+  await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
+  await page.reload(); await expect(page.locator('#total')).toHaveText('€7.00');
+  await showRecords(page); await page.getByRole('button', { name: 'Edit Varifocal example', exact: true }).click();
+  await expect(page.locator('input[value="Supereader"]')).toBeChecked();
+  await select('first'); await expect(page.locator('input[value="Supereader"]')).toBeChecked();
+  await select('241'); await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.00');
+  await expect(page.locator('#bonus-preview .breakdown')).not.toContainText('free under 241');
+  await select('241'); await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.locator('#count')).toHaveText('1'); await expect(page.locator('#total')).toHaveText('€7.00');
+});
+
 test('switching lens sets keeps independent choices and saves both in one record', async ({ page }) => {
   await page.goto('/');
   const select = value => page.locator('label').filter({has:page.locator(`input[value="${value}"]`)}).click();
