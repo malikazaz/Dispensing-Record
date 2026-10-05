@@ -26,3 +26,12 @@ test('pending rows export explicitly and do not poison confirmed total',async()=
 test('empty workbook has a valid zero total without a circular formula',async()=>{
   const book=new ExcelJS.Workbook();await book.xlsx.load(await exportWorkbook(initialState()));assert.equal(book.getWorksheet('Dispensing Record').getCell('Q5').value,0);
 });
+
+test('custom-period workbook has a separate named section, only selected records and a period-only total',async()=>{
+  const state=initialState();state.entries=['2026-09-30','2026-10-01','2026-10-31','2026-11-01'].map((date,i)=>({...blankEntry(),id:`period-${i}`,date,number:`00${i}`,name:`Customer ${i}`,types:['SV'],addons:['Elite']}));
+  const book=new ExcelJS.Workbook();await book.xlsx.load(await exportWorkbook(state,{mode:'custom',start:'2026-10-01',end:'2026-10-31',name:'October bonuses'}));
+  const sheet=book.getWorksheet('Bonus period');assert.equal(sheet.getCell('A1').value,'October bonuses');assert.match(sheet.getCell('A3').value,/01\/10\/2026 – 31\/10\/2026/);
+  assert.deepEqual(sheet.getRow(4).values.slice(1),PAPER_HEADERS);assert.equal(sheet.getCell('B5').value,'001');assert.equal(sheet.getCell('B6').value,'002');
+  assert.deepEqual(sheet.getCell('Q7').value,{formula:'SUM(Q5:Q6)',result:4});assert.match(sheet.getCell('A2').value,/2 records/);
+  assert.equal(sheet.autoFilter,'A4:Q6');assert.equal(state.entries.length,4);
+});

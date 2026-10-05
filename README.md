@@ -26,7 +26,13 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 2. Tick all relevant paper columns, choose the lens set and select purchased add-ons.
 3. Open **Special offers** when relevant. The bonus and its breakdown update immediately.
 4. Save the dispense. Edit or remove it from **Your records**. Removing asks for confirmation.
-5. **Export Excel** downloads all records, including those hidden by search. **Download backup** saves records and the bonus key in a restorable JSON file.
+5. **Export Excel** opens the bonus-report dialog. Choose **This month**, **Last month**, **Custom dates** or **All records**, optionally name the section, review its record count and bonus total, then select **Download Excel**. **Download backup** saves all records and the bonus key in a restorable JSON file.
+
+### Export a bonus period
+
+For a particular claim, choose **Custom dates** and enter the start and end dates. Both days are included, using the dispense's recorded date. An optional section name such as “October bonuses” becomes the heading in Excel. The preview shows the selected period's record count and confirmed bonus total, including a warning when pending bonuses are excluded. Empty periods and reversed or incomplete date ranges cannot be downloaded.
+
+The workbook contains a **Bonus period** worksheet with only that period's records, the date range, and its own total, plus the **Bonus key** worksheet. Its filename includes the start and end dates. **All records** remains available and uses the original **Dispensing Record** worksheet. Searching the on-screen list does not change either export's scope. Exporting does not remove, archive or mark records as paid; overlapping periods may include the same records. The chosen dates are retained while the page stays open, and reset to this month after reloading.
 
 Selecting a second lens set alone uses the ordinary second-set rates. Select a second-pair special offer explicitly when that promotion applies. For a second-pair SV offer with any add-ons, the app automatically switches to the single flat €5 bonus.
 
@@ -71,14 +77,14 @@ All calculation arithmetic uses integer cents. Missing rates, an unconfirmed key
 
 ## Excel layout
 
-The **Dispensing Record** worksheet uses the exact supplied headings:
+The **Dispensing Record** worksheet (or **Bonus period** for a selected date range) uses the exact supplied headings:
 
 ```text
 Date | Cust No | CX Name | SV | BIF | Vari | 241 | Other | RE |
 70 | 95 | 130 | 160 | 190 | 240 | Addons | Bonus
 ```
 
-Selected columns get a tick. Lens set and special offers appear within **Addons**, preserving the heading list. Records sort chronologically. Dates are native Excel dates, IDs are text, bonuses are numeric currency values, and **TOTAL** is an Excel SUM formula with a cached result. Pending bonuses are explicitly labelled and excluded from the total. Header rows and customer columns are frozen, and filters are included. The wide paper grid prints in landscape A3, one page wide and as many pages tall as needed; change paper size in Excel if desired.
+Selected columns get a tick. Lens set and special offers appear within **Addons**, preserving the heading list. Records within the selected export sort chronologically. Dates are native Excel dates, IDs are text, bonuses are numeric currency values, and **TOTAL** is an Excel SUM formula with a cached result covering only the exported rows. Pending bonuses are explicitly labelled and excluded from the total. Header rows and customer columns are frozen, and filters are included. The wide paper grid prints in landscape A3, one page wide and as many pages tall as needed; change paper size in Excel if desired.
 
 The **Bonus key** worksheet documents the exported rates, offer modes, source and calculation conventions. Record bonuses are snapshots: editing cells in Excel does not rerun the app's rules. Edit in the app and export again for recalculated bonuses. User text is written as string cells, never interpreted as Excel formulas.
 
@@ -126,6 +132,7 @@ Files:
 - `src/main.js` / `src/style.css`: interface and responsive styles.
 - `src/storage.js`: versioned browser persistence and stale-write detection.
 - `src/workbook.js`: formatted paper-table workbook.
+- `src/export-selection.js`: inclusive date filtering, period summaries, month shortcuts and export filenames.
 - `.github/workflows/deploy.yml`: checks and GitHub Pages deployment.
 
 Storage is schema version 1 under `dispensing-record:v1`. Broken stored data is not overwritten automatically. Download the original stored text for recovery or restore a valid JSON backup. Writes fail visibly if storage is blocked, full or changed in another tab.

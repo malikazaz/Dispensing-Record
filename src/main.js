@@ -1,6 +1,7 @@
 import './style.css';
 import { GROUPS, MODES, blankEntry, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState } from './model.js';
 import { loadState, saveState, STORAGE_KEY } from './storage.js';
+import { monthPeriod, selectExport, exportFilename, periodLabel } from './export-selection.js';
 
 const $ = (selector) => document.querySelector(selector);
 const escape = (value) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -39,11 +40,22 @@ $('#app').innerHTML = `
       <section class="panel records-panel" aria-labelledby="records-title"><div class="records-heading"><div><h2 id="records-title">Your records <span id="record-badge" class="badge">0</span></h2><p>Saved here, ready whenever you need them.</p></div><button id="open-key" class="button text-button">${icon('book')}Bonus key</button></div>
         <div class="records-toolbar"><label class="search-field"><span class="sr-only">Search records</span><input id="search" type="search" placeholder="Search by name or customer number"></label><span id="shown-count"></span></div>
         <div id="records"></div>
-        <div class="records-footer"><span id="footer-summary"></span><span>Excel exports include all records.</span></div>
+        <div class="records-footer"><span id="footer-summary"></span><span>Export all records or choose a bonus period.</span></div>
       </section>
     </div>
     <footer class="page-footer"><p>${icon('check')}Records stay in this browser. Back up regularly; clearing browser data removes them.</p><div><button id="backup" class="link-button">Download backup</button><button id="restore" class="link-button">Restore backup</button><input id="restore-file" type="file" accept="application/json,.json" hidden><button id="raw-backup" class="link-button" hidden>Download stored data</button></div></footer>
   </main>
+  <dialog id="export-dialog" aria-labelledby="export-title"><form id="export-form">
+    <div class="dialog-heading"><div><p class="eyebrow">BONUS REPORT</p><h2 id="export-title">Export your records</h2></div><button type="button" id="close-export" class="close-button" aria-label="Close export">×</button></div>
+    <p class="dialog-intro">Choose the period you’re claiming for. Your Excel file will contain just those records, with its own heading and bonus total.</p>
+    <label class="field">Export period<select id="export-preset"><option value="month">This month</option><option value="previous-month">Last month</option><option value="custom">Custom dates</option><option value="all">All records</option></select></label>
+    <div id="export-dates" class="two-col"><label class="field">Start date<input id="export-start" type="date" required min="1900-01-01" max="9999-12-31"></label><label class="field">End date<input id="export-end" type="date" required min="1900-01-01" max="9999-12-31"></label></div>
+    <label class="field">Section name <span class="field-hint">Optional, e.g. October bonuses</span><input id="export-name" maxlength="80" placeholder="Bonus period"></label>
+    <div id="export-summary" class="export-summary" role="status" aria-live="polite"></div>
+    <div id="export-error" class="inline-error" role="alert" hidden></div>
+    <p class="field-hint export-hint">Both dates are included. The record-list search does not affect this export. Your saved records stay on this device.</p>
+    <div class="dialog-actions"><button type="button" id="cancel-export" class="button secondary">Cancel</button><button id="download-export" class="button primary" type="submit">${icon('download')}Download Excel</button></div>
+  </form></dialog>
   <dialog id="key-dialog" aria-labelledby="key-title"><form id="key-form"><div class="dialog-heading"><div><p class="eyebrow">REFERENCE & SETTINGS</p><h2 id="key-title">Your bonus key</h2></div><button type="button" id="close-key" class="close-button" aria-label="Close bonus key">×</button></div><p class="dialog-intro">Amounts are per selected item. Leave an unknown rate blank; use 0 for a column that earns no bonus. Saving changes recalculates every record.</p><div id="key-content"></div><div id="key-error" class="inline-error" role="alert" hidden></div><div class="dialog-actions"><button type="button" id="cancel-key" class="button secondary">Cancel</button><button class="button primary" type="submit">Save bonus key</button></div></form></dialog>`;
 
 function choices(group, long=false) {
@@ -164,16 +176,65 @@ $('#key-form').addEventListener('submit',event=>{
 function download(blob,name) {
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
-$('#export').addEventListener('click',async()=>{
-  const button=$('#export');button.disabled=true;button.textContent='Preparing Excel…';
+let exportBusy = false;
+function exportOptions() {
+  return { mode: $('#export-preset').value === 'all' ? 'all' : 'custom', start: $('#export-start').value, end: $('#export-end').value, name: $('#export-name').value };
+}
+function updateExportPreview() {
+  showError($('#export-error'),'');
   try {
-    const snapshot=structuredClone(state);
+    const selection = selectExport(state,exportOptions());
+    $('#export-summary').innerHTML = `<p>${escape(periodLabel(selection))}</p><div><span>${selection.entries.length} ${selection.entries.length === 1 ? 'record' : 'records'}</span><strong>${fmt(selection.total.cents)}</strong></div><p>${selection.total.pending ? `${selection.total.pending} pending ${selection.total.pending === 1 ? 'record is' : 'records are'} excluded from this confirmed total.` : 'Total bonus for this export.'}</p>${selection.entries.length ? '' : '<p class="export-empty">No records in this period. Choose different dates or All records.</p>'}`;
+    $('#download-export').disabled = exportBusy || !selection.entries.length;
+  } catch(error) {
+    $('#export-summary').textContent = 'Choose a valid period to preview its records and bonus total.';
+    showError($('#export-error'),error.message);
+    $('#download-export').disabled = true;
+  }
+}
+function applyExportPreset() {
+  const preset = $('#export-preset').value;
+  if (['month','previous-month'].includes(preset)) {
+    const range = monthPeriod(preset);
+    $('#export-start').value = range.start; $('#export-end').value = range.end;
+  }
+  $('#export-dates').hidden = preset === 'all';
+  $('#export-start').disabled = $('#export-end').disabled = preset === 'all';
+  updateExportPreview();
+}
+$('#export').addEventListener('click',()=>{
+  // Keep the chosen period during this visit, but recompute its preview from current records.
+  if (!$('#export-start').value) applyExportPreset(); else updateExportPreview();
+  $('#export-dialog').showModal();
+});
+$('#export-preset').addEventListener('change',applyExportPreset);
+for (const id of ['#export-start','#export-end']) $(id).addEventListener('input',()=>{
+  $('#export-preset').value = 'custom'; updateExportPreview();
+});
+$('#export-name').addEventListener('input',updateExportPreview);
+$('#close-export').addEventListener('click',()=>$('#export-dialog').close());
+$('#cancel-export').addEventListener('click',()=>$('#export-dialog').close());
+$('#export-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if (exportBusy) return;
+  const button=$('#download-export');
+  try {
+    const snapshot=structuredClone(state),options=exportOptions(),selection=selectExport(snapshot,options);
+    if (!selection.entries.length) throw new Error('No records in this period. Choose different dates.');
+    exportBusy=true;button.disabled=true;button.textContent='Preparing Excel…';
+    // Keep the visible selection consistent with the snapshot while the file is generated.
+    for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=true;
     const {exportWorkbook}=await import('./workbook.js');
-    const buffer=await exportWorkbook(snapshot);
-    download(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`dispensing-record-${localDate()}.xlsx`);
-    notify('Excel file prepared with all records and the bonus key.');
-  }catch(error){notify(`Excel export failed: ${error.message}. Your records are still saved.`);}
-  finally{button.disabled=!state.entries.length;button.innerHTML=`${icon('download')}Export Excel`;}
+    const buffer=await exportWorkbook(snapshot,options);
+    download(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),exportFilename(selection));
+    $('#export-dialog').close();
+    notify(`Excel file prepared: ${periodLabel(selection)} · ${selection.entries.length} records.`);
+  }catch(error){showError($('#export-error'),`Excel export failed: ${error.message}. Your records are still saved.`);}
+  finally{
+    exportBusy=false;button.disabled=false;button.innerHTML=`${icon('download')}Download Excel`;
+    for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=false;
+    $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
+  }
 });
 $('#backup').addEventListener('click',()=>download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),`dispensing-backup-${localDate()}.json`));
 $('#raw-backup').addEventListener('click',()=>{

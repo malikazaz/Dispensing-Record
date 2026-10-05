@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
-import { GROUPS, MODES, calculate, money, ruleId, summarise } from './model.js';
+import { GROUPS, MODES, calculate, money, ruleId } from './model.js';
+import { selectExport, periodLabel } from './export-selection.js';
 
 export const PAPER_HEADERS = ['Date','Cust No','CX Name',...GROUPS.types,'Addons','Bonus'];
 const ink='FF244F43', light='FFEAF1E6', border='FFD5DFD1';
@@ -19,25 +20,27 @@ function bodyCell(cell) {
 function details(entry,result) {
   return [entry.set==='first'?'1st set of lenses':'2nd set of lenses', entry.addons.length ? entry.addons.join(' + ') : 'No add-ons', ...entry.offers.map(offer=>`Offer: ${offer}`), ...result.issues.map(issue=>`REVIEW: ${issue}`)].join('\n');
 }
-export function makeWorkbook(state) {
+export function makeWorkbook(state, options = { mode: 'all' }) {
+  const selection = selectExport(state, options);
   const workbook=new ExcelJS.Workbook();
   workbook.creator='Dispensing Record';workbook.created=new Date();workbook.calcProperties.fullCalcOnLoad=true;
   const currency=state.key.currency==='EUR'?'€':'£';
   const currencyFormat=`"${currency}"#,##0.00;[Red]("${currency}"#,##0.00);"${currency}"0.00`;
-  const total=summarise(state.entries,state.key);
-  const sheet=workbook.addWorksheet('Dispensing Record',{
+  const total=selection.total;
+  const sheet=workbook.addWorksheet(selection.mode === 'custom' ? 'Bonus period' : 'Dispensing Record',{
     views:[{state:'frozen',xSplit:3,ySplit:4,showGridLines:false}],
     pageSetup:{paperSize:8,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.25,right:.25,top:.35,bottom:.35,header:.15,footer:.15}},
     headerFooter:{oddFooter:'&LDispensing Record&CPage &P of &N&RPrivate customer records'},
   });
   sheet.columns=[{width:12},{width:14},{width:27},...GROUPS.types.map(()=>({width:5.5})),{width:55},{width:14}];
-  title(sheet,'A1:Q1','DISPENSING RECORD');sheet.getRow(1).height=39;
-  sheet.mergeCells('A2:Q2');sheet.getCell('A2').value=`${state.entries.length} records  •  ${total.pending?'Confirmed bonus':'Total bonus'}: ${money(total.cents,state.key.currency)}${total.pending?`  •  ${total.pending} pending records excluded from total`:''}`;
+  title(sheet,'A1:Q1',selection.name || (selection.mode === 'custom' ? 'BONUS PERIOD' : 'DISPENSING RECORD'));sheet.getRow(1).height=selection.name.length > 50 ? 60 : 39;
+  sheet.getCell('A1').alignment={vertical:'middle',wrapText:true};
+  sheet.mergeCells('A2:Q2');sheet.getCell('A2').value=`${selection.entries.length} records  •  ${total.pending?'Confirmed bonus':'Total bonus'}: ${money(total.cents,state.key.currency)}${total.pending?`  •  ${total.pending} pending records excluded from total`:''}`;
   sheet.getCell('A2').font={name:'Calibri',size:11,color:{argb:ink}};sheet.getRow(2).height=25;
-  sheet.mergeCells('A3:Q3');sheet.getCell('A3').value='Lens set and special offers are included in Addons to preserve the original paper headings. Bonus values reflect the exported key.';
+  sheet.mergeCells('A3:Q3');sheet.getCell('A3').value=`${periodLabel(selection)}. Lens set and special offers appear in Addons. Bonus values reflect the exported key.`;
   sheet.getCell('A3').font={name:'Calibri',size:10,color:{argb:'FF6C7C65'}};sheet.getRow(3).height=23;
   sheet.getRow(4).values=PAPER_HEADERS;header(sheet.getRow(4));
-  const entries=state.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const entries=selection.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
   for(const [index,entry]of entries.entries()) {
     const result=calculate(entry,state.key),addonText=details(entry,result);
     const row=sheet.getRow(index+5);
@@ -80,6 +83,6 @@ export function makeWorkbook(state) {
   key.pageSetup.printArea=`A1:E${r}`;
   return workbook;
 }
-export async function exportWorkbook(state) {
-  return makeWorkbook(state).xlsx.writeBuffer();
+export async function exportWorkbook(state, options = { mode: 'all' }) {
+  return makeWorkbook(state, options).xlsx.writeBuffer();
 }
