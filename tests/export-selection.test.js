@@ -10,6 +10,8 @@ test('period includes both boundaries, excludes outside records and leaves store
   assert.deepEqual(selection.entries.map(e=>e.date),['2026-10-01','2026-10-31']);assert.deepEqual(selection.total,{cents:400,pending:0});
   assert.equal(selection.name,'October bonuses');assert.deepEqual(state,before);
   assert.equal(exportFilename(selection),'dispensing-record-2026-10-01-to-2026-10-31.xlsx');
+  assert.equal(exportFilename(selection,'pdf'),'dispensing-record-2026-10-01-to-2026-10-31.pdf');
+  assert.throws(()=>exportFilename(selection,'html'));
 });
 test('all records ignores stray date values; a single-day period and no matches are supported',()=>{
   assert.equal(selectExport(fixture(),{mode:'all',start:'bad',end:''}).entries.length,4);

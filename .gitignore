@@ -6,4 +6,5 @@ playwright-report/
 .DS_Store
 dispensing-backup-*.json
 dispensing-record-*.xlsx
+dispensing-record-*.pdf
 dispensing-stored-data.txt

@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { initialState, blankEntry } from '../../src/model.js';
+import { readPdf } from '../helpers/read-pdf.js';
 async function select(page,label){await page.locator('label').filter({has:page.locator(`input[value="${label}"]`)}).click();}
 async function startRecord(page,name='Alex Morgan',number='001234'){
   await page.getByLabel('Date',{exact:true}).fill('2026-10-05');
@@ -24,7 +25,7 @@ test('save, persist, edit, export exact paper table and remove on desktop and mo
   await expect(page.locator('#bonus-preview')).toContainText('€7.00');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await expect(page.locator('#total')).toHaveText('€7.00');
-  await page.getByRole('button',{name:'Export Excel',exact:true}).click();
+  await page.getByRole('button',{name:'Export records',exact:true}).click();
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('all');
   const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download Excel',exact:true}).click();
   const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
@@ -99,7 +100,7 @@ test('custom period exports only inclusive dates as its own named section with a
   await page.goto('/');await page.evaluate(data=>localStorage.setItem('dispensing-record:v1',JSON.stringify(data)),state);await page.reload();
   // A record-list search must not silently narrow the bonus claim.
   await page.getByRole('searchbox').fill('Customer 0');
-  await page.getByRole('button',{name:'Export Excel',exact:true}).click();
+  await page.getByRole('button',{name:'Export records',exact:true}).click();
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('custom');
   await page.getByLabel('Start date',{exact:true}).fill('2026-10-01');await page.getByLabel('End date',{exact:true}).fill('2026-10-31');
   await page.getByLabel('Section name',{exact:false}).fill('October bonuses');
@@ -119,7 +120,7 @@ test('custom period exports only inclusive dates as its own named section with a
 
 test('custom export rejects reversed, incomplete and empty periods; cancellation retains records',async({page})=>{
   await page.goto('/');await startRecord(page);await page.getByRole('button',{name:'Save dispense',exact:true}).click();
-  await page.getByRole('button',{name:'Export Excel',exact:true}).click();
+  await page.getByRole('button',{name:'Export records',exact:true}).click();
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('custom');
   await page.getByLabel('Start date',{exact:true}).fill('2026-10-31');await page.getByLabel('End date',{exact:true}).fill('2026-10-01');
   await expect(page.locator('#export-error')).toContainText('on or after');await expect(page.locator('#download-export')).toBeDisabled();
@@ -129,6 +130,28 @@ test('custom export rejects reversed, incomplete and empty periods; cancellation
   await page.getByLabel('Start date',{exact:true}).fill('2026-10-05');await page.getByLabel('End date',{exact:true}).fill('2026-10-05');
   await expect(page.locator('#export-summary')).toContainText('1 record');await expect(page.locator('#download-export')).toBeEnabled();
   await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page.locator('#count')).toHaveText('1');
-  await page.getByRole('button',{name:'Export Excel',exact:true}).click();await expect(page.getByLabel('Start date',{exact:true})).toHaveValue('2026-10-05');
+  await page.getByRole('button',{name:'Export records',exact:true}).click();await expect(page.getByLabel('Start date',{exact:true})).toHaveValue('2026-10-05');
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('all');await expect(page.locator('#export-dates')).toBeHidden();await expect(page.locator('#download-export')).toBeEnabled();
+});
+
+test('PDF download uses the chosen period and section, while Excel remains available',async({page},testInfo)=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const state=initialState();state.entries=['2026-09-30','2026-10-01','2026-10-31','2026-11-01'].map((date,i)=>({...blankEntry(),id:`pdf-${i}`,date,number:`009${i}`,name:`PDF Customer ${i}`,types:['SV'],addons:['Polaroid','Elite']}));
+  await page.goto('/');await page.evaluate(data=>localStorage.setItem('dispensing-record:v1',JSON.stringify(data)),state);await page.reload();
+  await page.getByRole('button',{name:'Export records',exact:true}).click();
+  await page.getByRole('combobox',{name:'File format',exact:true}).selectOption('pdf');
+  await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('custom');
+  await page.getByLabel('Start date',{exact:true}).fill('2026-10-01');await page.getByLabel('End date',{exact:true}).fill('2026-10-31');
+  await page.getByLabel('Section name',{exact:false}).fill('October PDF bonuses');
+  await expect(page.locator('#export-summary')).toContainText('€10.00');
+  if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`${testInfo.project.name}-pdf-dialog.png`)});
+  const waiting=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();
+  const file=await waiting;expect(file.suggestedFilename()).toBe('dispensing-record-2026-10-01-to-2026-10-31.pdf');
+  const buffer=await fs.readFile(await file.path());const pages=await readPdf(buffer);const text=pages.map(p=>p.text).join(' ');
+  expect(text).toContain('October PDF bonuses');expect(text).toContain('TOTAL BONUS');expect(text).toContain('€10.00');
+  expect(text).toContain('0091');expect(text).toContain('0092');expect(text).not.toContain('0090');expect(text).not.toContain('0093');
+  await expect(page.locator('#count')).toHaveText('4');
+  await page.getByRole('button',{name:'Export records',exact:true}).click();
+  await page.getByRole('combobox',{name:'File format',exact:true}).selectOption('xlsx');await expect(page.getByRole('button',{name:'Download Excel',exact:true})).toBeEnabled();
+  expect(errors).toEqual([]);
 });

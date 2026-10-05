@@ -14,7 +14,7 @@ const fmt = (cents) => money(cents,state.key.currency);
 $('#app').innerHTML = `
   <header class="topbar"><div class="brand"><span class="brand-mark">${icon('glasses')}</span><span>Dispensing<span class="brand-light"> Record</span></span></div><span class="local-label"><span class="dot"></span>Stored on this device</span></header>
   <main>
-    <div class="page-heading"><div><p class="eyebrow">YOUR DAILY DISPENSING LOG</p><h1>A little less paperwork.</h1><p class="subtitle">Record the dispense. We’ll take care of the bonus.</p></div><button id="export" class="button primary">${icon('download')}Export Excel</button></div>
+    <div class="page-heading"><div><p class="eyebrow">YOUR DAILY DISPENSING LOG</p><h1>A little less paperwork.</h1><p class="subtitle">Record the dispense. We’ll take care of the bonus.</p></div><button id="export" class="button primary">${icon('download')}Export records</button></div>
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <div id="storage-error" class="warning" role="alert" hidden></div>
     <section class="stats" aria-label="Record summary">
@@ -47,7 +47,8 @@ $('#app').innerHTML = `
   </main>
   <dialog id="export-dialog" aria-labelledby="export-title"><form id="export-form">
     <div class="dialog-heading"><div><p class="eyebrow">BONUS REPORT</p><h2 id="export-title">Export your records</h2></div><button type="button" id="close-export" class="close-button" aria-label="Close export">×</button></div>
-    <p class="dialog-intro">Choose the period you’re claiming for. Your Excel file will contain just those records, with its own heading and bonus total.</p>
+    <p class="dialog-intro">Choose a format and the period you’re claiming for. Your file will contain just those records, with its own heading and bonus total.</p>
+    <label class="field">File format<select id="export-format"><option value="xlsx">Excel (.xlsx)</option><option value="pdf">PDF (.pdf)</option></select></label>
     <label class="field">Export period<select id="export-preset"><option value="month">This month</option><option value="previous-month">Last month</option><option value="custom">Custom dates</option><option value="all">All records</option></select></label>
     <div id="export-dates" class="two-col"><label class="field">Start date<input id="export-start" type="date" required min="1900-01-01" max="9999-12-31"></label><label class="field">End date<input id="export-end" type="date" required min="1900-01-01" max="9999-12-31"></label></div>
     <label class="field">Section name <span class="field-hint">Optional, e.g. October bonuses</span><input id="export-name" maxlength="80" placeholder="Bonus period"></label>
@@ -180,6 +181,9 @@ let exportBusy = false;
 function exportOptions() {
   return { mode: $('#export-preset').value === 'all' ? 'all' : 'custom', start: $('#export-start').value, end: $('#export-end').value, name: $('#export-name').value };
 }
+function updateExportFormat() {
+  $('#download-export').innerHTML = `${icon('download')}Download ${$('#export-format').value === 'pdf' ? 'PDF' : 'Excel'}`;
+}
 function updateExportPreview() {
   showError($('#export-error'),'');
   try {
@@ -208,6 +212,7 @@ $('#export').addEventListener('click',()=>{
   $('#export-dialog').showModal();
 });
 $('#export-preset').addEventListener('change',applyExportPreset);
+$('#export-format').addEventListener('change',updateExportFormat);
 for (const id of ['#export-start','#export-end']) $(id).addEventListener('input',()=>{
   $('#export-preset').value = 'custom'; updateExportPreview();
 });
@@ -219,19 +224,26 @@ $('#export-form').addEventListener('submit',async event=>{
   if (exportBusy) return;
   const button=$('#download-export');
   try {
-    const snapshot=structuredClone(state),options=exportOptions(),selection=selectExport(snapshot,options);
+    const snapshot=structuredClone(state),options=exportOptions(),selection=selectExport(snapshot,options),format=$('#export-format').value;
+    const filename=exportFilename(selection,format),formatLabel=format === 'pdf' ? 'PDF' : 'Excel';
     if (!selection.entries.length) throw new Error('No records in this period. Choose different dates.');
-    exportBusy=true;button.disabled=true;button.textContent='Preparing Excel…';
+    exportBusy=true;button.disabled=true;button.textContent=`Preparing ${formatLabel}…`;
     // Keep the visible selection consistent with the snapshot while the file is generated.
     for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=true;
-    const {exportWorkbook}=await import('./workbook.js');
-    const buffer=await exportWorkbook(snapshot,options);
-    download(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),exportFilename(selection));
+    let buffer;
+    if(format === 'pdf') {
+      const {exportPdf}=await import('./pdf.js');
+      buffer=await exportPdf(snapshot,options);
+    } else {
+      const {exportWorkbook}=await import('./workbook.js');
+      buffer=await exportWorkbook(snapshot,options);
+    }
+    download(new Blob([buffer],{type:format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),filename);
     $('#export-dialog').close();
-    notify(`Excel file prepared: ${periodLabel(selection)} · ${selection.entries.length} records.`);
-  }catch(error){showError($('#export-error'),`Excel export failed: ${error.message}. Your records are still saved.`);}
+    notify(`${formatLabel} file prepared: ${periodLabel(selection)} · ${selection.entries.length} records.`);
+  }catch(error){showError($('#export-error'),`Export failed: ${error.message}. Your records are still saved.`);}
   finally{
-    exportBusy=false;button.disabled=false;button.innerHTML=`${icon('download')}Download Excel`;
+    exportBusy=false;button.disabled=false;updateExportFormat();
     for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=false;
     $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
   }

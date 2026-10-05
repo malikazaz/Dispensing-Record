@@ -26,10 +26,11 @@ export function selectExport(state, options = { mode: 'all' }) {
   return { entries, total: summarise(entries,state.key), name, mode: options.mode, start: options.start, end: options.end };
 }
 
-export function exportFilename(selection) {
+export function exportFilename(selection, format = 'xlsx') {
+  if (!['xlsx','pdf'].includes(format)) throw new Error('Choose Excel or PDF.');
   return selection.mode === 'custom'
-    ? `dispensing-record-${selection.start}-to-${selection.end}.xlsx`
-    : `dispensing-record-all-${localDate()}.xlsx`;
+    ? `dispensing-record-${selection.start}-to-${selection.end}.${format}`
+    : `dispensing-record-all-${localDate()}.${format}`;
 }
 
 export function periodLabel(selection) {

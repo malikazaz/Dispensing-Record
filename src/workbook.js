@@ -1,8 +1,9 @@
 import ExcelJS from 'exceljs';
 import { GROUPS, MODES, calculate, money, ruleId } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
+import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
-export const PAPER_HEADERS = ['Date','Cust No','CX Name',...GROUPS.types,'Addons','Bonus'];
+export { PAPER_HEADERS } from './export-table.js';
 const ink='FF244F43', light='FFEAF1E6', border='FFD5DFD1';
 function title(sheet,range,text) {
   sheet.mergeCells(range);const cell=sheet.getCell(range.split(':')[0]);cell.value=text;
@@ -16,9 +17,6 @@ function bodyCell(cell) {
   cell.font={name:'Calibri',size:10,color:{argb:'FF324436'}};
   cell.alignment={vertical:'middle',wrapText:true};
   cell.border={bottom:{style:'thin',color:{argb:border}},left:{style:'hair',color:{argb:border}},right:{style:'hair',color:{argb:border}}};
-}
-function details(entry,result) {
-  return [entry.set==='first'?'1st set of lenses':'2nd set of lenses', entry.addons.length ? entry.addons.join(' + ') : 'No add-ons', ...entry.offers.map(offer=>`Offer: ${offer}`), ...result.issues.map(issue=>`REVIEW: ${issue}`)].join('\n');
 }
 export function makeWorkbook(state, options = { mode: 'all' }) {
   const selection = selectExport(state, options);
@@ -42,7 +40,7 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
   sheet.getRow(4).values=PAPER_HEADERS;header(sheet.getRow(4));
   const entries=selection.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
   for(const [index,entry]of entries.entries()) {
-    const result=calculate(entry,state.key),addonText=details(entry,result);
+    const result=calculate(entry,state.key),addonText=recordDetails(entry,result);
     const row=sheet.getRow(index+5);
     row.values=[new Date(`${entry.date}T00:00:00Z`),entry.number,entry.name,...GROUPS.types.map(type=>entry.types.includes(type)?'✓':''),addonText,result.cents===null?'Pending':result.cents/100];
     row.height=Math.max(42,addonText.split('\n').reduce((lines,line)=>lines+Math.max(1,Math.ceil(line.length/49)),0)*13+10,Math.ceil(entry.name.length/25)*13+10,Math.ceil(entry.number.length/13)*13+10);

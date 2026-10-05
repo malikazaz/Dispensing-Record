@@ -1,10 +1,10 @@
 # Dispensing Record
 
-A mobile-friendly dispensing log that saves records in the browser and exports a formatted Excel workbook. Plain JavaScript + Vite, with ExcelJS for client-side `.xlsx` generation. No backend, login, database, tracking or API keys.
+A mobile-friendly dispensing log that saves records in the browser and exports formatted Excel workbooks and printable PDFs. Plain JavaScript + Vite, with ExcelJS for `.xlsx` generation and pdfmake for `.pdf` generation, entirely on the device. No backend, login, database, tracking or API keys.
 
 ## Run locally
 
-Install Node.js 22.12+ (Node 24 recommended). In this folder:
+Install Node.js 22.13+ (Node 24 recommended). In this folder:
 
 ```sh
 npm ci
@@ -18,7 +18,7 @@ npm run build
 npm run preview
 ```
 
-Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the deployable website. The Excel library loads only when an export is requested.
+Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the deployable website. The Excel or PDF library loads only when that format is requested; both libraries and the PDF fonts are bundled with the site.
 
 ## Use the app
 
@@ -26,11 +26,11 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 2. Tick all relevant paper columns, choose the lens set and select purchased add-ons.
 3. Open **Special offers** when relevant. The bonus and its breakdown update immediately.
 4. Save the dispense. Edit or remove it from **Your records**. Removing asks for confirmation.
-5. **Export Excel** opens the bonus-report dialog. Choose **This month**, **Last month**, **Custom dates** or **All records**, optionally name the section, review its record count and bonus total, then select **Download Excel**. **Download backup** saves all records and the bonus key in a restorable JSON file.
+5. **Export records** opens the bonus-report dialog. Choose **Excel (.xlsx)** or **PDF (.pdf)**, then **This month**, **Last month**, **Custom dates** or **All records**. Optionally name the section, review its record count and bonus total, and select **Download Excel** or **Download PDF**. **Download backup** saves all records and the bonus key in a restorable JSON file.
 
 ### Export a bonus period
 
-For a particular claim, choose **Custom dates** and enter the start and end dates. Both days are included, using the dispense's recorded date. An optional section name such as “October bonuses” becomes the heading in Excel. The preview shows the selected period's record count and confirmed bonus total, including a warning when pending bonuses are excluded. Empty periods and reversed or incomplete date ranges cannot be downloaded.
+For a particular claim, choose **Custom dates** and enter the start and end dates. Both days are included, using the dispense's recorded date. An optional section name such as “October bonuses” becomes the heading in either format. The preview shows the selected period's record count and confirmed bonus total, including a warning when pending bonuses are excluded. Empty periods and reversed or incomplete date ranges cannot be downloaded.
 
 The workbook contains a **Bonus period** worksheet with only that period's records, the date range, and its own total, plus the **Bonus key** worksheet. Its filename includes the start and end dates. **All records** remains available and uses the original **Dispensing Record** worksheet. Searching the on-screen list does not change either export's scope. Exporting does not remove, archive or mark records as paid; overlapping periods may include the same records. The chosen dates are retained while the page stays open, and reset to this month after reloading.
 
@@ -88,6 +88,12 @@ Selected columns get a tick. Lens set and special offers appear within **Addons*
 
 The **Bonus key** worksheet documents the exported rates, offer modes, source and calculation conventions. Record bonuses are snapshots: editing cells in Excel does not rerun the app's rules. Edit in the app and export again for recalculated bonuses. User text is written as string cells, never interpreted as Excel formulas.
 
+## PDF layout
+
+The **PDF** option downloads a real `.pdf` file, with the same inclusive date filtering, section name, selected records and confirmed bonus total as Excel. It uses the original 17 paper-table headings in landscape A3 to keep the wide table readable. Selected columns use an **X**, with lens set and special offers in **Addons**. It includes a dated report heading, repeated table headings, page numbers, pending-bonus warnings, and a separate **Bonus key** appendix. Customer numbers retain leading zeros; embedded Roboto fonts support currency symbols and accented names. Long rows wrap and remain together across page breaks.
+
+The downloaded PDF can be shared or printed from a PDF viewer. Choose A3 landscape for the intended print size, or use the viewer's fit-to-page option for smaller paper. Export generation does not contact another service or upload customer data. The current records remain unchanged; both export formats are reporting snapshots, while JSON is the restorable backup.
+
 ## Deploy from GitHub with GitHub Pages
 
 1. Create a GitHub repository, for example `dispensing-record`.
@@ -111,7 +117,7 @@ Future pushes to `main` repeat validation and deployment. Pull requests run chec
 
 After pushing, enable GitHub Pages as described above. A successful repository push alone does not create a live site.
 
-References: [Vite static deployment guide](https://vite.dev/guide/static-deploy.html) and [ExcelJS documentation](https://github.com/exceljs/exceljs#readme).
+References: [Vite static deployment guide](https://vite.dev/guide/static-deploy.html), [ExcelJS documentation](https://github.com/exceljs/exceljs#readme), and [pdfmake browser documentation](https://pdfmake.github.io/docs/0.3/getting-started/client-side/).
 
 ## Tests and maintenance
 
@@ -122,7 +128,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Unit tests cover every supplied add-on rate, frames, Golden Ticket, second-pair caps, invalid combinations, rounding, data validation, storage conflicts/failures, and Excel round trips. Browser checks exercise mobile/desktop entry, editing, removal, persistence, Excel downloads, backup restoration, key changes and stale tabs. Optional `SCREENSHOT_DIR` captures synthetic-data review screenshots; no test data ships in the app.
+Unit tests cover every supplied add-on rate, frames, Golden Ticket, second-pair caps, invalid combinations, rounding, data validation, storage conflicts/failures, Excel round trips, and PDF content, Unicode text, page numbering and page bounds. Browser checks exercise mobile/desktop entry, editing, removal, persistence, Excel and PDF downloads, backup restoration, key changes and stale tabs. Optional `SCREENSHOT_DIR` captures synthetic-data review screenshots; no test data ships in the app.
 
 ExcelJS 4.4.0's transitive `uuid` dependency is overridden to 11.1.1 to address the reported older-version advisory. ExcelJS's use of the `v4` API is compatible and the workbook round-trip tests cover the export path. The browser bundle is larger only when Excel export is loaded. Test dependency updates before deployment.
 
@@ -132,6 +138,8 @@ Files:
 - `src/main.js` / `src/style.css`: interface and responsive styles.
 - `src/storage.js`: versioned browser persistence and stale-write detection.
 - `src/workbook.js`: formatted paper-table workbook.
+- `src/pdf.js`: printable PDF table, pagination and bonus-key appendix.
+- `src/export-table.js`: shared paper headings and record details for both formats.
 - `src/export-selection.js`: inclusive date filtering, period summaries, month shortcuts and export filenames.
 - `.github/workflows/deploy.yml`: checks and GitHub Pages deployment.
 
