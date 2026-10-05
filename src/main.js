@@ -42,7 +42,7 @@ $('#app').innerHTML = `
           <details class="offers"><summary>Special offers <span>Optional</span></summary><div class="offer-list">${choices('offers',true)}</div></details>
           <div id="bonus-preview" class="bonus-preview" aria-live="polite"></div>
           <div id="form-error" class="inline-error" role="alert" hidden></div>
-          <div class="form-actions"><button id="save-entry" type="submit" class="button primary">${icon('plus')}Save dispense</button><button id="cancel-edit" class="button secondary" type="button" hidden>Cancel edit</button></div>
+          <div class="form-actions"><button id="save-entry" type="submit" class="button primary">${icon('plus')}Save dispense</button><button id="clear-entry" class="button secondary" type="button">Clear form</button><button id="cancel-edit" class="button secondary" type="button" hidden>Cancel edit</button></div>
         </form>
       </section>
       <section id="records-view" class="panel records-panel" role="tabpanel" aria-labelledby="tab-records" hidden><div class="records-heading"><h2 id="records-title">Records <span id="record-badge" class="badge">0</span></h2><button id="open-key" class="button text-button">${icon('book')}Bonus key</button></div>
@@ -212,6 +212,12 @@ $('#entry-form').addEventListener('submit', event => {
   } catch(error) { showError($('#form-error'),error.message); }
 });
 $('#cancel-edit').addEventListener('click',()=>{editing=null;fillEntry();});
+$('#clear-entry').addEventListener('click',()=>{
+  editing=null; editingOriginal=null;
+  rememberDate(); fillEntry();
+  $('#entry-form').elements.number.focus({preventScroll:true});
+  $('.form-panel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+});
 $('#search').addEventListener('input',renderRecords);
 $('#records').addEventListener('click',event=>{
   const button=event.target.closest('button[data-action]'); if(!button)return;
