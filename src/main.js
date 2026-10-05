@@ -2,11 +2,13 @@ import './style.css';
 import { GROUPS, MODES, blankEntry, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState } from './model.js';
 import { loadState, saveState, STORAGE_KEY } from './storage.js';
 import { monthPeriod, selectExport, exportFilename, periodLabel } from './export-selection.js';
+import { documentOf, equal } from './cloud-model.js';
+import { installCloudUI } from './cloud-ui.js';
 
 const $ = (selector) => document.querySelector(selector);
 const escape = (value) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ glasses:'<circle cx="6" cy="14" r="4"/><circle cx="18" cy="14" r="4"/><path d="M10 13h4M2 13l2-8h3m15 8-2-8h-3"/>', download:'<path d="M12 3v12m-5-5 5 5 5-5M4 15v5h16v-5"/>', plus:'<path d="M12 5v14M5 12h14"/>', book:'<path d="M4 4h13a3 3 0 0 1 3 3v14H6a2 2 0 0 1-2-2zm0 13h16M8 8h8m-8 4h5"/>', check:'<path d="m5 12 4 4L19 6"/>', edit:'<path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14z"/>', trash:'<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>' })[name] || ''}</svg>`;
-let state = initialState(), raw = null, storageError = '', editing = null;
+let state = initialState(), raw = null, storageError = '', editing = null, editingOriginal = null, keyOriginal = null, cloud = null;
 try { ({state,raw} = loadState(localStorage)); }
 catch { storageError = 'Saved records could not be read. Existing storage has been left untouched. Download the stored data below for recovery, or restore a valid backup.'; }
 const fmt = (cents) => money(cents,state.key.currency);
@@ -68,7 +70,9 @@ function displayStorageError() { showError($('#storage-error'),storageError); $(
 function commit(next) {
   try {
     if (storageError) throw new Error(storageError);
+    if (cloud && !cloud.canEdit()) throw new Error('Sign in to the account linked to these records first.');
     ({state,raw} = saveState(localStorage,next,raw));
+    cloud?.changed();
     return true;
   } catch(error) {
     showError($('#storage-error'),`Changes were not saved. ${error.message} Your current form is still available.`);
@@ -126,6 +130,7 @@ $('#entry-form').addEventListener('submit', event => {
   event.preventDefault();
   try {
     const entry = readEntry(); validateEntry(entry);
+    if (editing && !equal(editingOriginal, state.entries.find(e => e.id === editing))) throw new Error('This record changed online while you were editing. Copy your changes, cancel this edit, then reopen the current record.');
     entry.id ||= crypto.randomUUID();
     const entries = editing ? state.entries.map(e=>e.id===editing?entry:e) : [...state.entries,entry];
     if (!commit({...state,entries})) return;
@@ -141,7 +146,7 @@ $('#records').addEventListener('click',event=>{
   const entry=state.entries.find(e=>e.id===button.dataset.id); if(!entry)return;
   if(button.dataset.action==='edit') {
     if (editing && editing!==entry.id && !confirm('Discard the current edit and open this record?')) return;
-    editing=entry.id;fillEntry(entry);$('.form-panel').scrollIntoView({behavior:'smooth',block:'start'});$('#entry-form').elements.name.focus({preventScroll:true});
+    editing=entry.id;editingOriginal=structuredClone(entry);fillEntry(entry);$('.form-panel').scrollIntoView({behavior:'smooth',block:'start'});$('#entry-form').elements.name.focus({preventScroll:true});
   } else if(confirm(`Remove the record for ${entry.name} (${entry.number})?`)) {
     if(!commit({...state,entries:state.entries.filter(e=>e.id!==entry.id)}))return;
     if(editing===entry.id){editing=null;fillEntry();}
@@ -150,6 +155,7 @@ $('#records').addEventListener('click',event=>{
 });
 
 function openKey() {
+  keyOriginal = structuredClone(state.key);
   $('#key-content').innerHTML = `<label class="field currency-field">Currency<select name="currency"><option value="EUR" ${state.key.currency==='EUR'?'selected':''}>Euro (€)</option><option value="GBP" ${state.key.currency==='GBP'?'selected':''}>Pound (£)</option></select></label><p class="field-hint">Changing currency relabels amounts; it does not convert them.</p>${Object.entries(GROUPS).map(([group,labels])=>`<section class="key-section"><h3>${({types:'Paper-table columns',addons:'Add-ons',offers:'Special offers'})[group]}</h3>${group==='types'?'<p class="field-hint">Columns without a listed bonus use 0. Select all applicable paper columns.</p>':''}<div class="rate-head"><span>Item</span><span>1st set</span><span>2nd set</span></div>${labels.map(label=>{
     const id=ruleId(group,label),rate=state.key.rates[id];
     return `<div class="rate-row"><span>${escape(label)}</span>${['first','second'].map(set=>`<input aria-label="${escape(label)} ${set==='first'?'1st':'2nd'} set rate" name="${escape(`${id}:${set}`)}" type="number" min="0" max="10000" step="0.01" inputmode="decimal" placeholder="Unknown" value="${rate[set]===null?'':(rate[set]/100).toFixed(2)}">`).join('')}</div>${group==='offers'?`<label class="offer-mode">How this offer applies<select name="${escape(id)}:mode" aria-label="${escape(label)} calculation"><option value="">Needs confirmation</option>${Object.entries(MODES).map(([mode,text])=>`<option value="${mode}" ${rate.mode===mode?'selected':''}>${text}</option>`).join('')}</select></label>`:''}`;
@@ -163,6 +169,7 @@ $('#key-form').addEventListener('submit',event=>{
   event.preventDefault();
   try {
     const data=new FormData(event.target),key=structuredClone(state.key);
+    if (!equal(keyOriginal, state.key)) throw new Error('The bonus key changed online. Close and reopen this window before editing it.');
     key.currency=data.get('currency');key.confirmed=data.has('confirmed');key.source=data.get('source');
     for(const [group,labels]of Object.entries(GROUPS))for(const label of labels){
       const id=ruleId(group,label);
@@ -248,7 +255,8 @@ $('#export-form').addEventListener('submit',async event=>{
     $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
   }
 });
-$('#backup').addEventListener('click',()=>download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),`dispensing-backup-${localDate()}.json`));
+function downloadBackup() { download(new Blob([JSON.stringify(documentOf(state),null,2)],{type:'application/json'}),`dispensing-backup-${localDate()}.json`); }
+$('#backup').addEventListener('click',downloadBackup);
 $('#raw-backup').addEventListener('click',()=>{
   try{download(new Blob([localStorage.getItem(STORAGE_KEY)||''],{type:'text/plain'}),'dispensing-stored-data.txt');}catch{notify('Browser storage is unavailable.');}
 });
@@ -256,14 +264,33 @@ $('#restore').addEventListener('click',()=>$('#restore-file').click());
 $('#restore-file').addEventListener('change',async event=>{
   const file=event.target.files[0];if(!file)return;
   try {
+    if (cloud && !cloud.canEdit()) throw new Error('Sign in before restoring a backup.');
+    if (cloud?.isBusy()) throw new Error('Wait for syncing to finish before restoring a backup.');
     if(file.size>10000000)throw new Error('Backup is too large (maximum 10 MB).');
-    const restored=validateState(JSON.parse(await file.text()));
-    if(!confirm(`Replace the records and bonus key on this device with ${restored.entries.length} records from this backup? Download a backup first if needed.`))return;
+    const restored=documentOf(validateState(JSON.parse(await file.text())));
+    if(!confirm(`Replace the records and bonus key${state.cloud?' on this device and in your online account':' on this device'} with ${restored.entries.length} records from this backup? Download a backup first if needed.`))return;
     // Intentional replacement is also the recovery path for unreadable saved data.
     const expected=localStorage.getItem(STORAGE_KEY);
-    ({state,raw}=saveState(localStorage,restored,expected));storageError='';displayStorageError();editing=null;fillEntry();renderRecords();notify('Backup restored and saved on this device.');
+    ({state,raw}=saveState(localStorage,{...restored,...(state.cloud?{cloud:state.cloud}:{})},expected));storageError='';displayStorageError();editing=null;fillEntry();renderRecords();cloud?.changed();notify('Backup restored and saved on this device.');
   }catch(error){notify(`Could not restore backup: ${error.message}`);}
   finally{event.target.value='';}
 });
 window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY)showError($('#storage-error'),'Records changed in another tab. Reload to see the latest records before saving.');});
 displayStorageError();fillEntry();renderRecords();
+cloud = installCloudUI({
+  read: () => state,
+  assertFresh: () => {
+    if (storageError) throw new Error(storageError);
+    if (localStorage.getItem(STORAGE_KEY) !== raw) throw new Error('Records changed in another tab. Reload before syncing.');
+  },
+  write: next => {
+    if (storageError) throw new Error(storageError);
+    ({ state, raw } = saveState(localStorage, next, raw));
+    renderRecords(); updatePreview(); return state;
+  },
+  locked: value => {
+    for (const selector of ['.stats', '.workspace', '.page-footer', '#export']) $(selector).hidden = value;
+    if (value) for (const selector of ['#key-dialog', '#export-dialog']) $(selector).close();
+  },
+  backup: downloadBackup, notify,
+});

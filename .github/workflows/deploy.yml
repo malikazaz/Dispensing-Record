@@ -28,6 +28,14 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:e2e
+      # Browser tests always use the empty/example config and mocked accounts.
+      # Only this final artifact receives the actual public project settings.
+      - name: Configure online saving
+        run: node scripts/configure-cloud.mjs
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_PASSWORD_RESET_ENABLED: ${{ vars.SUPABASE_PASSWORD_RESET_ENABLED }}
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

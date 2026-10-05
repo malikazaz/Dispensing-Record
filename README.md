@@ -1,6 +1,6 @@
 # Dispensing Record
 
-A mobile-friendly dispensing log that saves records in the browser and exports formatted Excel workbooks and printable PDFs. Plain JavaScript + Vite, with ExcelJS for `.xlsx` generation and pdfmake for `.pdf` generation, entirely on the device. No backend, login, database, tracking or API keys.
+A mobile-friendly dispensing log with local saving, optional private Supabase sign-in and online saving, and formatted Excel/PDF exports. Plain JavaScript + Vite, with ExcelJS and pdfmake generating reports entirely on the device. GitHub Pages remains the free static host. See [online-saving setup](docs/ONLINE-SAVING.md) to connect your own Supabase project.
 
 ## Run locally
 
@@ -36,7 +36,9 @@ The workbook contains a **Bonus period** worksheet with only that period's recor
 
 Selecting a second lens set alone uses the ordinary second-set rates. Select a second-pair special offer explicitly when that promotion applies. For a second-pair SV offer with any add-ons, the app automatically switches to the single flat €5 bonus.
 
-Records are specific to this browser profile and site origin. They do not synchronise across devices or local/GitHub URLs. Moving between GitHub Pages paths on the same domain shares this app's storage key. Private browsing and clearing browser data can remove records. Download backups regularly; Excel is for reporting, JSON is for restoring. Customer information stays on the device until the user downloads or shares a file. The app does not upload records to GitHub. Use an appropriate device for customer information; browser storage is not encrypted by the app and the site has no access control.
+Without Supabase configured, records stay in this browser profile and site origin. With online saving connected, records and the bonus key also sync to the signed-in account's private database; the status distinguishes confirmed online saves from changes waiting to sync. Her existing local data stays intact until she signs in and chooses **Connect and upload**. A fresh browser can sign in and download the online copy. See [setup, recovery and conflict handling](docs/ONLINE-SAVING.md).
+
+Private browsing and clearing browser data can remove the local copy, including changes not yet uploaded. Download JSON backups regularly; Excel/PDF are reports, JSON is for restoring. Customer information is never uploaded to GitHub. A connected app sends records/key to your Supabase project. Use a personal device: local storage is not encrypted, and signing out hides cached records without deleting pending work. Moving between GitHub Pages paths on the same domain shares this app's storage key.
 
 ## Bonus key and agreed rules
 
@@ -113,7 +115,7 @@ The downloaded PDF can be shared or printed from a PDF viewer. Choose A3 landsca
 5. Open **Actions → Test and deploy to GitHub Pages**. Run it manually if the initial push occurred before Pages was enabled. The included workflow installs locked dependencies, tests, builds, runs desktop/mobile browser checks, and deploys `dist/`.
 6. The deployment provides a URL such as `https://YOUR-USERNAME.github.io/dispensing-record/`. Open that URL on the phone. Browser **Add to Home Screen** may create a shortcut. This app does not install a service worker or promise offline page loading.
 
-Future pushes to `main` repeat validation and deployment. Pull requests run checks without deploying. The relative Vite base (`./`) supports repository subpaths and a root/custom-domain deployment without editing a repository name. No client-side URL router is used. GitHub Pages serves public app assets; records remain local to each visitor. Private-repository Pages availability depends on the account's plan.
+Future pushes to `main` repeat validation and deployment. Pull requests run checks without deploying. The relative Vite base (`./`) supports repository subpaths and a root/custom-domain deployment without editing a repository name. No client-side URL router is used. GitHub Pages serves public app assets; records are stored in the browser and, when connected, the user's private Supabase document. Private-repository Pages availability depends on the account's plan.
 
 After pushing, enable GitHub Pages as described above. A successful repository push alone does not create a live site.
 
@@ -130,6 +132,8 @@ npm run test:e2e
 
 Unit tests cover every supplied add-on rate, frames, Golden Ticket, second-pair caps, invalid combinations, rounding, data validation, storage conflicts/failures, Excel round trips, and PDF content, Unicode text, page numbering and page bounds. Browser checks exercise mobile/desktop entry, editing, removal, persistence, Excel and PDF downloads, backup restoration, key changes and stale tabs. Optional `SCREENSHOT_DIR` captures synthetic-data review screenshots; no test data ships in the app.
 
+Online-saving checks also cover Postgres access policies, account binding, merge conflicts, interrupted uploads, fresh-browser recovery and mobile sign-in. Database policy tests run the actual migration in PGlite. Browser cloud tests use a mocked API; they do not contact your live database. See [online-saving documentation](docs/ONLINE-SAVING.md) for deployment and live verification.
+
 ExcelJS 4.4.0's transitive `uuid` dependency is overridden to 11.1.1 to address the reported older-version advisory. ExcelJS's use of the `v4` API is compatible and the workbook round-trip tests cover the export path. The browser bundle is larger only when Excel export is loaded. Test dependency updates before deployment.
 
 Files:
@@ -137,6 +141,10 @@ Files:
 - `src/model.js`: supplied key, validation and pure bonus calculations.
 - `src/main.js` / `src/style.css`: interface and responsive styles.
 - `src/storage.js`: versioned browser persistence and stale-write detection.
+- `src/cloud-model.js`: three-way sync, revisions, conflicts and interrupted-upload recovery.
+- `src/cloud-client.js` / `src/cloud-ui.js`: Supabase authentication, database adapter and online-save interface.
+- `supabase/migrations/`: private tables and database access policies.
+- `scripts/configure-cloud.mjs`: validates and writes public deployment settings.
 - `src/workbook.js`: formatted paper-table workbook.
 - `src/pdf.js`: printable PDF table, pagination and bonus-key appendix.
 - `src/export-table.js`: shared paper headings and record details for both formats.

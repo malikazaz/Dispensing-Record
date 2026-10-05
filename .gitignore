@@ -8,3 +8,7 @@ dispensing-backup-*.json
 dispensing-record-*.xlsx
 dispensing-record-*.pdf
 dispensing-stored-data.txt
+.env
+.env.*
+!.env.example
+.projects/

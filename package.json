@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
     "exceljs": "4.4.0",
     "pdfmake": "0.3.11"
   },
@@ -20,6 +21,7 @@
     }
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.58.2",
     "pdfjs-dist": "6.4.299",
     "vite": "8.3.2"

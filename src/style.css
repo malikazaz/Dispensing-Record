@@ -17,6 +17,12 @@
 input[type=date]{display:block;min-inline-size:0;max-inline-size:100%;-webkit-appearance:none;appearance:none;text-align:left}
 input[type=date]::-webkit-date-and-time-value{min-height:1.5em;text-align:left}
 input[type=date]::-webkit-datetime-edit{padding:0}
+.cloud-panel{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;margin-bottom:24px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.cloud-panel>div{min-width:0}.cloud-panel p{margin-top:6px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.cloud-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.cloud-actions .button{white-space:normal}
+.conflict-item{border:1px solid var(--line);border-radius:9px;padding:15px;margin:14px 0}.conflict-item h3{margin-bottom:12px}.conflict-item p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;margin:7px 0 16px}
+#login-dialog,#password-dialog{max-width:440px}#conflict-dialog{max-width:650px}
+@media(max-width:540px){.cloud-panel{align-items:stretch;flex-direction:column}.cloud-actions .button{flex:1}.cloud-actions{width:100%}.cloud-panel{padding:16px}.local-label{max-width:115px;text-align:right}}
 @media(max-width:540px){
   /* A complete row per field keeps phone date pickers and long IDs separate. */
   .two-col{grid-template-columns:minmax(0,1fr);gap:0}
