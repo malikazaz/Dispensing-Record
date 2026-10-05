@@ -124,7 +124,7 @@ References: [Vite static deployment guide](https://vite.dev/guide/static-deploy.
 ```sh
 npm test
 npm run build
-npx playwright install chromium
+npx playwright install chromium webkit
 npm run test:e2e
 ```
 
@@ -144,3 +144,5 @@ Files:
 - `.github/workflows/deploy.yml`: checks and GitHub Pages deployment.
 
 Storage is schema version 1 under `dispensing-record:v1`. Broken stored data is not overwritten automatically. Download the original stored text for recovery or restore a valid JSON backup. Writes fail visibly if storage is blocked, full or changed in another tab.
+
+Phone form fields use separate full-width rows with matching 48px heights and 16px input text. Grid children and native date controls are constrained to their available width, including Safari. The focused `mobile-layout.spec.js` checks entry and export fields at 320-1280px in Chromium and WebKit, covering long customer numbers, saving and editing.

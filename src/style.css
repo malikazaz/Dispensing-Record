@@ -8,3 +8,16 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 #export-dialog{max-width:560px}.export-summary{padding:18px;background:#f1f6ed;border:1px solid #dce7d6;border-radius:9px;margin-bottom:16px;color:#47603d}.export-summary>div{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0}.export-summary strong{font-size:27px;color:#264e3c}.export-summary p{font-size:12px;line-height:1.7}.export-summary .export-empty{margin-top:10px;color:#91611e}.export-hint{font-size:11px;margin:0 0 20px}#export-dialog .field-hint{margin-top:0;font-weight:400}#export-dialog input,#export-dialog select{font-size:16px}
 #export-dialog .dialog-actions{position:sticky;bottom:-28px;background:#fff;padding:14px 0 24px;margin-bottom:-24px;box-shadow:0 -8px 12px #ffffffed}@media(max-width:540px){#export-dialog .dialog-actions{bottom:-20px;padding-bottom:20px;margin-bottom:-20px}}
+
+/* Let native date controls shrink inside their grid track, including in Safari. */
+.two-col{grid-template-columns:repeat(2,minmax(0,1fr))}
+.field{min-width:0;max-width:100%}
+.field input,.field select,.field textarea{max-width:100%;font-weight:400}
+input[type=date]{display:block;min-inline-size:0;max-inline-size:100%;-webkit-appearance:none;appearance:none;text-align:left}
+input[type=date]::-webkit-date-and-time-value{min-height:1.5em;text-align:left}
+input[type=date]::-webkit-datetime-edit{padding:0}
+@media(max-width:540px){
+  /* A complete row per field keeps phone date pickers and long IDs separate. */
+  .two-col{grid-template-columns:minmax(0,1fr);gap:0}
+  .field input,.field select{height:48px;min-height:48px;padding:11px 12px;font-size:16px!important;line-height:24px}
+}
