@@ -22,7 +22,7 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 
 ## Use the app
 
-1. Enter date, customer number and customer name. Customer numbers remain text, preserving leading zeros. Use the arrows beside the date to move one day backward/forward, or tap the date to use the calendar.
+1. Enter date, customer number and customer name. Customer numbers remain text, preserving leading zeros. Customer names show a red warning if a number is typed or pasted; removing the number clears it. This is an advisory warning and does not change entered text. Use the arrows beside the date to move one day backward/forward, or tap the date to use the calendar.
 2. Tick the relevant paper columns and both frame prices for the customer. Select **1st set of lenses** and choose its add-ons/offers, then **2nd set of lenses** for its own choices. Each set remembers its selections when switching; the customer, date and frame selections are shared. Both sets save as one record.
 3. Open **Special offers** when relevant. The bonus and its breakdown update immediately.
 4. Save the dispense. The form clears customer/dispense choices, keeps the selected date and scrolls back to the top of the form for the next customer. The date also survives a page refresh in the same tab. Editing an older record does not change your new-entry date. **Clear form** clears the current customer, both sets of add-ons/offers and dispense selections, retains the displayed date, and returns to the top. During editing it discards unsaved changes without altering the saved record. Open **Records** to search, edit or remove saved entries; removing asks for confirmation.
