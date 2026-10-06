@@ -64,3 +64,11 @@ A free project can pause after low activity. Resume it from the Supabase dashboa
 ## Verification
 
 `npm test` includes three-way merge, offline/lost-response recovery, in-flight edits, conflicts, stale writes, account binding, public config validation and real Postgres RLS tests using PGlite. `npm run test:e2e` checks mock Supabase authentication/sync in Chromium and WebKit, including a fresh browser recovery and small phone layouts. Mock/local checks are not a substitute for a one-time live sign-in and upload/download check after project setup.
+
+## Claim history and sync
+
+The claim ledger is an optional `key.claims` field in the existing private document. It contains immutable record snapshots and integer-cent amounts, plus draft/submission/correction history. Keeping it in the key preserves it through the existing backup and sync document envelope; no database migration is needed. The 10 MB document limit still applies.
+
+With a claim ledger present, records and claim reservations merge as one unit. Concurrent changes to that unit require an explicit device/online choice; independent rate changes still merge separately. This intentionally avoids combining overlapping claims or an edit/deletion with a claim that locks the same record. The review identifies both histories; download a backup before choosing because unrelated changes in that record/history unit follow the selected copy. Lost-response recovery uses the same rule.
+
+Claims are application-level tracking for one user, not a server-enforced accounting ledger. Only synced changes are recoverable on another device. Do not create/submit claims independently on multiple offline devices; sync first and resolve conflicts before sending a report. Reload old app tabs: older builds do not understand record locks, although they preserve the ledger inside the key; the new validator rejects claimed records changed by an older client instead of silently changing the saved claim.

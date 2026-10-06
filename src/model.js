@@ -1,3 +1,4 @@
+import { validateClaims } from './claims-schema.js';
 export const GROUPS = {
   types: ['SV', 'BIF', 'Vari', '241', 'Other', 'RE', '70', '95', '130', '160', '190', '240'],
   addons: ['UCSC', '1.6', '1.67', '1.74', 'Polaroid', 'Polaroid 1.6', 'Polaroid 1.67', 'Reaction', 'Reaction 1.67', 'Tint', 'Elite', 'Tailormade', 'Supereader', 'Super Boost', 'Miyosmart'],
@@ -92,6 +93,7 @@ export function validateState(state) {
     if (typeof entry.id !== 'string' || !/^[\w-]{1,80}$/.test(entry.id) || ids.has(entry.id)) throw new Error('Invalid or duplicate record ID.');
     ids.add(entry.id);
   }
+  validateClaims(state, validateEntry);
   return state;
 }
 export function calculate(entry,key) {

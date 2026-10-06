@@ -1,3 +1,4 @@
+import { claimsOf } from './claims.js';
 import { initialState, validateState } from './model.js';
 
 // Sync bookkeeping never goes into exports, backups or the remote document.
@@ -36,6 +37,17 @@ export function mergeDocuments(base, local, remote, choices = {}) {
     conflicts.push({ id, local: here, remote: there });
     return here;
   };
+  // Claims and their reserved records are atomic: a concurrent claim/edit cannot
+  // combine into a double claim or silently release a submitted record.
+  if ([base,local,remote].some(state=>claimsOf(state).length)) {
+    const bundle=state=>({entries:documentOf(state).entries,claims:claimsOf(state)});
+    const rates=state=>{const {claims,...key}=state.key;return key;};
+    const selected=choose('claims-records',bundle(base),bundle(local),bundle(remote));
+    const key=choose('bonus-key',rates(base),rates(local),rates(remote));
+    const document=documentOf({entries:selected.entries,key:{...key,claims:selected.claims}});
+    validateState(document);
+    return {document,conflicts};
+  }
   const [b, l, r] = [base, local, remote].map(s => new Map(s.entries.map(e => [e.id, e])));
   const ids = new Set([...l.keys(), ...r.keys(), ...b.keys()]);
   const entries = [...ids].map(id => choose(id, b.get(id), l.get(id), r.get(id))).filter(Boolean);
@@ -88,6 +100,12 @@ export class CloudSync {
               .filter(id => !equal(localMap.get(id), remoteMap.get(id)))
               .map(id => ({ id, local: localMap.get(id), remote: remoteMap.get(id) }));
             if (!equal(local.key, remote.key)) conflicts.push({ id: 'bonus-key', local: local.key, remote: remote.key });
+            if ([local,remote].some(state=>claimsOf(state).length)) {
+              // An uncertain upload needs an explicit whole-document decision;
+              // keep claim reservations and their record copies together.
+              conflicts.splice(0,conflicts.length);
+              if (!equal(documentOf(local),documentOf(remote))) conflicts.push({id:'claims-document',local:documentOf(local),remote:documentOf(remote)});
+            }
             if (conflicts.length) {
               this.conflict = { owner, localRevision: local.revision, remote, remoteVersion: remoteRow?.version || 0, document: documentOf(local), conflicts };
               this.status('conflict', this.conflict); return;
@@ -150,7 +168,9 @@ export class CloudSync {
     const document = structuredClone(conflict.document);
     for (const item of conflict.conflicts) {
       const selected = side === 'local' ? item.local : item.remote;
-      if (item.id === 'bonus-key') document.key = selected;
+      if (item.id === 'claims-document') Object.assign(document,selected);
+      else if (item.id === 'claims-records') { document.entries=selected.entries;document.key.claims=selected.claims; }
+      else if (item.id === 'bonus-key') document.key = {...selected,...(document.key.claims?{claims:document.key.claims}:{})};
       else {
         document.entries = document.entries.filter(e => e.id !== item.id);
         if (selected) document.entries.push(selected);

@@ -25,8 +25,9 @@ export function pdfDefinition(state, options = {mode:'all'}) {
   const totalText = selection.total.pending ? 'TOTAL CONFIRMED BONUS' : 'TOTAL BONUS';
   const body = [PAPER_HEADERS.map(headerCell)];
   for (const [index,entry] of selection.entries.slice().sort((a,b) => a.date.localeCompare(b.date)).entries()) {
-    const result = calculate(entry,state.key);
-    const values = [dateText(entry.date),entry.number,entry.name,...GROUPS.types.map(type => entry.types.includes(type) ? 'X' : ''),recordDetails(entry,result),result.cents === null ? 'Pending' : money(result.cents,state.key.currency)];
+    const saved=selection.rows?.find(row=>row.entry.id===entry.id);
+    const result = saved ? {cents:saved.cents,issues:[]} : calculate(entry,state.key);
+    const values = [dateText(entry.date),entry.number,entry.name,...GROUPS.types.map(type => entry.types.includes(type) ? 'X' : ''),(saved?.details ?? recordDetails(entry,result)),result.cents === null ? 'Pending' : money(result.cents,selection.currency)];
     body.push(values.map((text,column) => ({
       text, fillColor: index % 2 ? '#f5f8f2' : '#ffffff',
       alignment: column === 16 ? 'right' : column >= 3 && column <= 14 ? 'center' : 'left',
@@ -37,7 +38,7 @@ export function pdfDefinition(state, options = {mode:'all'}) {
   body.push([
     {text:totalText,colSpan:16,bold:true,fillColor:'#eaf1e6'},
     ...Array.from({length:15},() => ({})),
-    {text:money(selection.total.cents,state.key.currency),alignment:'right',bold:true,fillColor:'#eaf1e6',color:GREEN},
+    {text:money(selection.total.cents,selection.currency),alignment:'right',bold:true,fillColor:'#eaf1e6',color:GREEN},
   ]);
   return {
     pageSize:'A3',pageOrientation:'landscape',pageMargins:[28,45,28,38],
@@ -48,11 +49,11 @@ export function pdfDefinition(state, options = {mode:'all'}) {
     content:[
       {text:title,fontSize:22,bold:true,color:GREEN,margin:[0,0,0,9]},
       {text:period,fontSize:11,color:GREEN,margin:[0,0,0,6]},
-      {text:`${selection.entries.length} ${selection.entries.length === 1 ? 'record' : 'records'}  |  ${selection.total.pending ? 'Confirmed bonus' : 'Total bonus'}: ${money(selection.total.cents,state.key.currency)}`,fontSize:12,bold:true,margin:[0,0,0,6]},
+      {text:`${selection.entries.length} ${selection.entries.length === 1 ? 'record' : 'records'}  |  ${selection.total.pending ? 'Confirmed bonus' : 'Total bonus'}: ${money(selection.total.cents,selection.currency)}`,fontSize:12,bold:true,margin:[0,0,0,6]},
       ...(selection.total.pending ? [{text:`${selection.total.pending} pending records are listed but excluded from the confirmed total. Review their bonus rules in the app.`,color:'#91611e',margin:[0,0,0,7]}] : []),
       {text:'X marks a selected paper column. Lens set and special offers are included in Addons.',fontSize:9,color:'#657a5a',margin:[0,0,0,12]},
       {table:{headerRows:1,keepWithHeaderRows:1,dontBreakRows:true,widths:[60,65,140,...GROUPS.types.map(() => 26),'*',82],body},layout},
-      {text:'Bonus values are a snapshot at the time of export. Edit records or rates in the app and export again to recalculate.',fontSize:9,color:'#657a5a',margin:[0,10,0,0]},
+      {text:selection.claim?'Claim amounts were fixed when this claim was prepared. Keep this claim reference when submitting.':'Bonus values are a snapshot at the time of export. Edit records or rates in the app and export again to recalculate.',fontSize:9,color:'#657a5a',margin:[0,10,0,0]},
     ],
   };
 }

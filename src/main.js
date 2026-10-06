@@ -1,3 +1,5 @@
+import { installClaimsUI } from './claims-ui.js';
+import { claimsOf, activeClaim, unclaimedEntries, recordBonus, duplicateReceipts } from './claims.js';
 import './style.css';
 import { loadExporter, ExportLoadError } from './export-loader.js';
 import { GROUPS, ACTIVE_BONUS_GROUPS, THIRD_PAIR_OFFERS, thirdPairRate, thirdPairBase, hasLegacyThirdPair, MODES, blankEntry, lensSetsOf, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
@@ -14,6 +16,7 @@ let state = initialState(), raw = null, storageError = '', editing = null, editi
 try { ({state,raw} = loadState(localStorage)); }
 catch { storageError = 'Saved records could not be read. Existing storage has been left untouched. Download the stored data below for recovery, or restore a valid backup.'; }
 const fmt = (cents) => money(cents,state.key.currency);
+let claimsUI=null, exportClaimId=null, recoveredClaimId=null;
 let legacyThirdPair=false;
 let lensDraft, activeLensSet = 'first', legacyLensSet = null;
 let entryDate;
@@ -31,7 +34,7 @@ $('#app').innerHTML = `
       <div class="stat"><span class="stat-label">Dispensing records</span><strong id="count">0</strong></div>
       <div class="stat"><span class="stat-label">Recorded today</span><strong id="today-count">0</strong></div>
     </section>
-    <div class="view-toolbar"><div class="view-tabs" role="tablist" aria-label="Workspace"><button id="tab-entry" role="tab" aria-selected="true" aria-controls="entry-view">New dispense</button><button id="tab-records" role="tab" aria-selected="false" aria-controls="records-view" tabindex="-1">Records</button></div><button id="export" class="button secondary" aria-label="Export records">${icon('download')}<span>Export</span></button></div>
+    <div class="view-toolbar"><div class="view-tabs" role="tablist" aria-label="Workspace"><button id="tab-entry" role="tab" aria-selected="true" aria-controls="entry-view">New dispense</button><button id="tab-records" role="tab" aria-selected="false" aria-controls="records-view" tabindex="-1">Records</button><button id="tab-claims" role="tab" aria-selected="false" aria-controls="claims-view" tabindex="-1">Claims</button></div><button id="export" class="button secondary" aria-label="Export records">${icon('download')}<span>Export</span></button></div>
     <div class="workspace">
       <section id="entry-view" class="panel form-panel" role="tabpanel" aria-labelledby="tab-entry">
         <h2 id="form-title" class="sr-only">New dispense</h2>
@@ -57,18 +60,18 @@ $('#app').innerHTML = `
   </main>
   <dialog id="export-dialog" aria-labelledby="export-title"><form id="export-form">
     <div class="dialog-heading"><div><p class="eyebrow">BONUS REPORT</p><h2 id="export-title">Export your records</h2></div><button type="button" id="close-export" class="close-button" aria-label="Close export">×</button></div>
-    <p class="dialog-intro">Choose a format and the period you’re claiming for. Your file will contain just those records, with its own heading and bonus total.</p>
+    <p class="dialog-intro">For bonus submissions, use Claims to save a claim and track what you sent. This report includes only unclaimed records; downloading it does not mark them submitted.</p>
     <label class="field">File format<select id="export-format"><option value="xlsx">Excel (.xlsx)</option><option value="pdf">PDF (.pdf)</option></select></label>
-    <label class="field">Export period<select id="export-preset"><option value="month">This month</option><option value="previous-month">Last month</option><option value="custom">Custom dates</option><option value="all">All records</option></select></label>
+    <div id="export-range"><label class="field">Export period<select id="export-preset"><option value="month">This month</option><option value="previous-month">Last month</option><option value="custom">Custom dates</option><option value="all">All unclaimed records</option></select></label>
     <div id="export-dates" class="two-col"><label class="field">Start date<input id="export-start" type="date" required min="1900-01-01" max="9999-12-31"></label><label class="field">End date<input id="export-end" type="date" required min="1900-01-01" max="9999-12-31"></label></div>
     <label class="field">Section name <span class="field-hint">Optional, e.g. October bonuses</span><input id="export-name" maxlength="80" placeholder="Bonus period"></label>
-    <div id="export-summary" class="export-summary" role="status" aria-live="polite"></div>
+    </div><div id="export-summary" class="export-summary" role="status" aria-live="polite"></div>
     <div id="export-error" class="inline-error" role="alert" hidden></div>
     <button type="button" id="refresh-export" class="button secondary" hidden>Refresh app</button>
     <p class="field-hint export-hint">Both dates are included. The record-list search does not affect this export. Your saved records stay on this device.</p>
     <div class="dialog-actions"><button type="button" id="cancel-export" class="button secondary">Cancel</button><button id="download-export" class="button primary" type="submit">${icon('download')}Download Excel</button></div>
   </form></dialog>
-  <dialog id="key-dialog" aria-labelledby="key-title"><form id="key-form"><div class="dialog-heading"><div><p class="eyebrow">REFERENCE & SETTINGS</p><h2 id="key-title">Your bonus key</h2></div><button type="button" id="close-key" class="close-button" aria-label="Close bonus key">×</button></div><p class="dialog-intro">Amounts are per selected item. Leave an unknown rate blank; use 0 for a column that earns no bonus. Saving changes recalculates every record.</p><div id="key-content"></div><div id="key-error" class="inline-error" role="alert" hidden></div><div class="dialog-actions"><button type="button" id="cancel-key" class="button secondary">Cancel</button><button class="button primary" type="submit">Save bonus key</button></div></form></dialog>`;
+  <dialog id="key-dialog" aria-labelledby="key-title"><form id="key-form"><div class="dialog-heading"><div><p class="eyebrow">REFERENCE & SETTINGS</p><h2 id="key-title">Your bonus key</h2></div><button type="button" id="close-key" class="close-button" aria-label="Close bonus key">×</button></div><p class="dialog-intro">Amounts are per selected item. Leave an unknown rate blank; use 0 for a column that earns no bonus. Saving changes recalculates unclaimed records. Saved claims keep their original amounts.</p><div id="key-content"></div><div id="key-error" class="inline-error" role="alert" hidden></div><div class="dialog-actions"><button type="button" id="cancel-key" class="button secondary">Cancel</button><button class="button primary" type="submit">Save bonus key</button></div></form></dialog>`;
 
 function choices(group, long=false) {
   return (group==='offers'?ACTIVE_BONUS_GROUPS.offers:group==='thirdAddons'?GROUPS.addons:GROUPS[group]).map(label => `<label class="${long?'offer-choice':'chip'}"><input type="checkbox" name="${group}" value="${escape(label)}"><span>${escape(label)}</span></label>`).join('');
@@ -163,19 +166,20 @@ for (const [id, days] of [['previous-date', -1], ['next-date', 1]]) $(`#${id}`).
   rememberDate();
 });
 function showView(view) {
-  for (const name of ['entry', 'records']) {
+  for (const name of ['entry', 'records', 'claims']) {
     const selected = name === view;
     $(`#${name}-view`).hidden = !selected;
     $(`#tab-${name}`).setAttribute('aria-selected', String(selected));
     $(`#tab-${name}`).tabIndex = selected ? 0 : -1;
   }
 }
-for (const name of ['entry', 'records']) {
+for (const name of ['entry', 'records', 'claims']) {
   $(`#tab-${name}`).onclick = () => showView(name);
   $(`#tab-${name}`).onkeydown = event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 'entry' : event.key === 'End' ? 'records' : name === 'entry' ? 'records' : 'entry';
+    const tabs=['entry','records','claims'];
+    const next = event.key==='Home'?'entry':event.key==='End'?'claims':tabs[(tabs.indexOf(name)+(event.key==='ArrowRight'?1:2))%3];
     showView(next); $(`#tab-${next}`).focus();
   };
 }
@@ -188,15 +192,17 @@ function updatePreview() {
 }
 function dateText(date) { return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(`${date}T12:00:00`)); }
 function renderRecords() {
-  const totals = summarise(state.entries,state.key);
+  claimsUI?.render();
+  const totals = state.entries.reduce((sum,entry)=>{const result=recordBonus(state,entry);if(result.cents===null)sum.pending++;else if(result.currency===state.key.currency)sum.cents+=result.cents;else sum.otherCurrency++;return sum;},{cents:0,pending:0,otherCurrency:0});
   $('#total').textContent = fmt(totals.cents);
   $('#total-status').textContent = totals.pending ? '· confirmed' : '';
   $('#total-caption').textContent = totals.pending ? `${totals.pending} pending ${totals.pending===1?'record excluded':'records excluded'}` : '';
-  $('#total-caption').hidden = !totals.pending;
+  if(totals.otherCurrency)$('#total-caption').textContent+=` ${totals.otherCurrency} records use another currency; see Claims.`;
+  $('#total-caption').hidden = !totals.pending && !totals.otherCurrency;
   $('#count').textContent = state.entries.length;
   $('#record-badge').textContent = state.entries.length;
   $('#today-count').textContent = state.entries.filter(e=>e.date===localDate()).length;
-  $('#export').disabled = !state.entries.length;
+  $('#export').disabled = !unclaimedEntries(state).length;
   const query = $('#search').value.trim().toLocaleLowerCase();
   const entries = state.entries.filter(e=>`${e.name} ${e.number}`.toLocaleLowerCase().includes(query)).slice().sort((a,b)=>b.date.localeCompare(a.date));
   $('#shown-count').textContent = `${entries.length} ${entries.length===1?'record':'records'}`;
@@ -206,8 +212,8 @@ function renderRecords() {
     return;
   }
   $('#records').innerHTML = `<div class="table-scroll"><table class="record-table"><thead><tr><th>Date / customer</th><th>Dispense details</th><th class="bonus-heading">Bonus</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${entries.map(entry=>{
-    const result=calculate(entry,state.key);
-    return `<tr><td><span class="record-date">${dateText(entry.date)}</span><strong class="customer-name">${escape(entry.name)}</strong><span class="customer-number">#${escape(entry.number)}</span></td><td><div class="record-tags">${entry.types.map(t=>`<span>${escape(t)}</span>`).join('')}<span class="set-tag">${entry.lensSets?'Lens sets':entry.set==='first'?'1st set':'2nd set'}</span></div><p class="record-addons">${escape(entry.lensSets ? ['first','second'].map(set => `${set==='first'?'1st':'2nd'}: ${[...entry.lensSets[set].addons,...entry.lensSets[set].offers].join(' + ') || 'No add-ons'}`).join(' · ') : entry.addons.join(' + ') || 'No add-ons')}</p>${entry.thirdPair?.enabled?`<p class="record-addons">3rd pair: ${escape(entry.thirdPair.addons.join(' + ') || 'No add-ons')}</p>`:''}${!entry.lensSets && entry.offers.length?`<p class="record-offers">${escape(entry.offers.join(' · '))}</p>`:''}${result.issues.length?`<details class="row-review"><summary>Review bonus</summary><ul>${result.issues.map(i=>`<li>${escape(i)}</li>`).join('')}</ul></details>`:''}</td><td class="row-bonus ${result.cents===null?'pending':''}">${result.cents===null?'Pending':fmt(result.cents)}</td><td class="row-actions"><button class="icon-button" data-action="edit" data-id="${entry.id}" aria-label="Edit ${escape(entry.name)}">${icon('edit')}</button><button class="icon-button danger" data-action="remove" data-id="${entry.id}" aria-label="Remove ${escape(entry.name)}">${icon('trash')}</button></td></tr>`;
+    const result=recordBonus(state,entry),claim=activeClaim(state,entry.id);
+    return `<tr><td><span class="record-date">${dateText(entry.date)}</span><strong class="customer-name">${escape(entry.name)}</strong><span class="customer-number">#${escape(entry.number)}</span><span class="claim-record-status">${claim?escape(`${claim.status==='submitted'?'Submitted':'Draft'} · ${claim.name}`):'Unclaimed'}</span></td><td><div class="record-tags">${entry.types.map(t=>`<span>${escape(t)}</span>`).join('')}<span class="set-tag">${entry.lensSets?'Lens sets':entry.set==='first'?'1st set':'2nd set'}</span></div><p class="record-addons">${escape(entry.lensSets ? ['first','second'].map(set => `${set==='first'?'1st':'2nd'}: ${[...entry.lensSets[set].addons,...entry.lensSets[set].offers].join(' + ') || 'No add-ons'}`).join(' · ') : entry.addons.join(' + ') || 'No add-ons')}</p>${entry.thirdPair?.enabled?`<p class="record-addons">3rd pair: ${escape(entry.thirdPair.addons.join(' + ') || 'No add-ons')}</p>`:''}${!entry.lensSets && entry.offers.length?`<p class="record-offers">${escape(entry.offers.join(' · '))}</p>`:''}${result.issues.length?`<details class="row-review"><summary>Review bonus</summary><ul>${result.issues.map(i=>`<li>${escape(i)}</li>`).join('')}</ul></details>`:''}</td><td class="row-bonus ${result.cents===null?'pending':''}">${result.cents===null?'Pending':money(result.cents,result.currency)}</td><td class="row-actions">${claim?'<span class="field-hint">Locked in claim</span>':`<button class="icon-button" data-action="edit" data-id="${entry.id}" aria-label="Edit ${escape(entry.name)}">${icon('edit')}</button><button class="icon-button danger" data-action="remove" data-id="${entry.id}" aria-label="Remove ${escape(entry.name)}">${icon('trash')}</button>`}</td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 
@@ -227,6 +233,9 @@ $('#entry-form').addEventListener('submit', event => {
   try {
     const entry = readEntry(); validateEntry(entry);
     if (editing && !equal(editingOriginal, state.entries.find(e => e.id === editing))) throw new Error('This record changed online while you were editing. Copy your changes, cancel this edit, then reopen the current record.');
+    if (editing && activeClaim(state,editing)) throw new Error('This record is reserved in a claim. Release the claim before editing.');
+    const duplicates=duplicateReceipts(state,entry);
+    if(duplicates.length && !confirm(`Possible duplicate receipt: customer ${entry.number} on ${entry.date}.\n${duplicates.map(other=>{const claim=activeClaim(state,other.id);return `${other.name}: ${claim?claim.status+' in '+claim.name:'unclaimed'}`;}).join('\n')}\nSave another record only if this is a different receipt.`))return;
     entry.id ||= crypto.randomUUID();
     const entries = editing ? state.entries.map(e=>e.id===editing?entry:e) : [...state.entries,entry];
     if (!commit({...state,entries})) return;
@@ -249,6 +258,7 @@ $('#search').addEventListener('input',renderRecords);
 $('#records').addEventListener('click',event=>{
   const button=event.target.closest('button[data-action]'); if(!button)return;
   const entry=state.entries.find(e=>e.id===button.dataset.id); if(!entry)return;
+  if(activeClaim(state,entry.id)){notify('This record is locked in a claim. Open Claims to review it.');return;}
   if(button.dataset.action==='edit') {
     if (editing && editing!==entry.id && !confirm('Discard the current edit and open this record?')) return;
     editing=entry.id;editingOriginal=structuredClone(entry);showView('entry');fillEntry(entry);$('.form-panel').scrollIntoView({behavior:'smooth',block:'start'});$('#entry-form').elements.name.focus({preventScroll:true});
@@ -282,9 +292,9 @@ $('#key-form').addEventListener('submit',event=>{
       const id=ruleId(group,label);
       key.rates[id]={first:parseRate(data.get(`${id}:first`)),second:parseRate(data.get(`${id}:second`)),mode:group==='offers'?(data.get(`${id}:mode`)||null):'add'};
     }
-    if(state.entries.length && !confirm('Save this key and recalculate every existing record?'))return;
+    if(state.entries.length && !confirm('Save this key and recalculate unclaimed records? Saved claims keep their original amounts.'))return;
     if(!commit({...state,key}))return;
-    $('#key-dialog').close();updatePreview();renderRecords();notify('Bonus key saved. All records have been recalculated.');
+    $('#key-dialog').close();updatePreview();renderRecords();notify('Bonus key saved. Unclaimed records have been recalculated; saved claims keep their amounts.');
   }catch(error){showError($('#key-error'),error.message);}
 });
 
@@ -293,6 +303,7 @@ function download(blob,name) {
 }
 let exportBusy = false;
 function exportOptions() {
+  if(exportClaimId)return {claimId:exportClaimId};
   return { mode: $('#export-preset').value === 'all' ? 'all' : 'custom', start: $('#export-start').value, end: $('#export-end').value, name: $('#export-name').value };
 }
 function updateExportFormat() {
@@ -302,7 +313,7 @@ function updateExportPreview() {
   showError($('#export-error'),'');
   try {
     const selection = selectExport(state,exportOptions());
-    $('#export-summary').innerHTML = `<p>${escape(periodLabel(selection))}</p><div><span>${selection.entries.length} ${selection.entries.length === 1 ? 'record' : 'records'}</span><strong>${fmt(selection.total.cents)}</strong></div><p>${selection.total.pending ? `${selection.total.pending} pending ${selection.total.pending === 1 ? 'record is' : 'records are'} excluded from this confirmed total.` : 'Total bonus for this export.'}</p>${selection.entries.length ? '' : '<p class="export-empty">No records in this period. Choose different dates or All records.</p>'}`;
+    $('#export-summary').innerHTML = `<p>${selection.claim?escape(selection.name)+' · ':''}${escape(periodLabel(selection))}</p><div><span>${selection.entries.length} ${selection.entries.length === 1 ? 'record' : 'records'}</span><strong>${money(selection.total.cents,selection.currency)}</strong></div><p>${selection.total.pending ? `${selection.total.pending} pending ${selection.total.pending === 1 ? 'record is' : 'records are'} excluded from this confirmed total.` : 'Total bonus for this export.'}</p>${selection.entries.length ? '' : '<p class="export-empty">No records in this period. Choose different dates or All records.</p>'}`;
     $('#download-export').disabled = exportBusy || !selection.entries.length;
   } catch(error) {
     $('#export-summary').textContent = 'Choose a valid period to preview its records and bonus total.';
@@ -320,11 +331,17 @@ function applyExportPreset() {
   $('#export-start').disabled = $('#export-end').disabled = preset === 'all';
   updateExportPreview();
 }
-$('#export').addEventListener('click',()=>{
-  // Keep the chosen period during this visit, but recompute its preview from current records.
+function openExport(claimId=null) {
+  exportClaimId=claimId;
+  $('#export-range').hidden=!!claimId;
+  $('#export-title').textContent=claimId?'Download saved claim':'Unclaimed records report';
+  $('#export-dialog .dialog-intro').textContent=claimId?'This file uses the saved claim records and amounts. Downloading does not mark it submitted. Return to Claims after sending it.':'For bonus submissions, use Claims to track what you sent. This report includes only unclaimed records and does not mark them submitted.';
   if (!$('#export-start').value) applyExportPreset(); else updateExportPreview();
+  for(const input of $('#export-range').querySelectorAll('input,select'))input.disabled=!!claimId;
+  if(!claimId)$('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
   $('#export-dialog').showModal();
-});
+}
+$('#export').addEventListener('click',()=>openExport());
 $('#export-preset').addEventListener('change',applyExportPreset);
 $('#export-format').addEventListener('change',updateExportFormat);
 for (const id of ['#export-start','#export-end']) $(id).addEventListener('input',()=>{
@@ -360,7 +377,8 @@ $('#export-form').addEventListener('submit',async event=>{
   finally{
     exportBusy=false;button.disabled=false;updateExportFormat();
     for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=false;
-    $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
+    for(const input of $('#export-range').querySelectorAll('input,select'))input.disabled=!!exportClaimId;
+    $('#export-start').disabled=$('#export-end').disabled=!!exportClaimId || $('#export-preset').value==='all';
   }
 });
 const EXPORT_RECOVERY_KEY = 'dispensing-record:export-recovery';
@@ -377,6 +395,7 @@ $('#refresh-export').addEventListener('click',()=>{
   try {
     // Only report preferences are carried across the refresh, never customer data.
     const preferences=Object.fromEntries(['format','preset','start','end','name'].map(name=>[name,$(`#export-${name}`).value]));
+    if(exportClaimId)preferences.claimId=exportClaimId;
     sessionStorage.setItem(EXPORT_RECOVERY_KEY,JSON.stringify(preferences));
   } catch { /* Refresh remains available when session storage is blocked. */ }
   const url=new URL(location.href);
@@ -387,13 +406,15 @@ try {
   const preferences=JSON.parse(sessionStorage.getItem(EXPORT_RECOVERY_KEY) || 'null');
   sessionStorage.removeItem(EXPORT_RECOVERY_KEY);
   if (preferences && typeof preferences === 'object') {
+    recoveredClaimId=typeof preferences.claimId==='string'?preferences.claimId:null;
     for (const name of ['format','preset','start','end','name']) {
       if (typeof preferences[name] === 'string') $(`#export-${name}`).value=preferences[name];
     }
     if (!$('#export-format').value) $('#export-format').value='xlsx';
     if (!$('#export-preset').value) $('#export-preset').value='month';
     $('#export-dates').hidden=$('#export-preset').value==='all';
-    $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
+    for(const input of $('#export-range').querySelectorAll('input,select'))input.disabled=!!exportClaimId;
+    $('#export-start').disabled=$('#export-end').disabled=!!exportClaimId || $('#export-preset').value==='all';
     updateExportFormat();
   }
 } catch { /* Saved records do not depend on these optional preferences. */ }
@@ -414,7 +435,7 @@ $('#restore-file').addEventListener('change',async event=>{
     if (cloud?.isBusy()) throw new Error('Wait for syncing to finish before restoring a backup.');
     if(file.size>10000000)throw new Error('Backup is too large (maximum 10 MB).');
     const restored=documentOf(validateState(JSON.parse(await file.text())));
-    if(!confirm(`Replace the records and bonus key${state.cloud?' on this device and in your online account':' on this device'} with ${restored.entries.length} records from this backup? Download a backup first if needed.`))return;
+    if(!confirm(`Replace the records and bonus key${state.cloud?' on this device and in your online account':' on this device'} with ${restored.entries.length} records and ${claimsOf(restored).length} claims from this backup? Restoring an older backup can remove submission history. Download a backup first if needed.`))return;
     // Intentional replacement is also the recovery path for unreadable saved data.
     const expected=localStorage.getItem(STORAGE_KEY);
     ({state,raw}=saveState(localStorage,{...restored,...(state.cloud?{cloud:state.cloud}:{})},expected));storageError='';displayStorageError();editing=null;fillEntry();renderRecords();cloud?.changed();notify('Backup restored and saved on this device.');
@@ -422,7 +443,9 @@ $('#restore-file').addEventListener('change',async event=>{
   finally{event.target.value='';}
 });
 window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY)showError($('#storage-error'),'Records changed in another tab. Reload to see the latest records before saving.');});
+claimsUI=installClaimsUI({read:()=>state,commit,refresh:renderRecords,exportClaim:openExport,notify});
 displayStorageError();fillEntry();renderRecords();
+if(recoveredClaimId)showView('claims');
 cloud = installCloudUI({
   read: () => state,
   assertFresh: () => {
@@ -437,6 +460,7 @@ cloud = installCloudUI({
   locked: value => {
     for (const selector of ['.stats', '.workspace', '.page-footer', '.view-toolbar', '#open-key']) $(selector).hidden = value;
     $('#locked-message').hidden = !value;
+    if(value)claimsUI?.close();
     if (value) for (const selector of ['#key-dialog', '#export-dialog']) $(selector).close();
   },
   backup: downloadBackup, notify,

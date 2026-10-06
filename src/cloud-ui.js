@@ -32,7 +32,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
     <div class="dialog-actions"><button type="button" id="login-reset" class="link-button">Forgot password?</button><button id="login-submit" class="button primary">Sign in</button></div>
   </form></dialog>
   <dialog id="password-dialog" aria-labelledby="password-title"><form id="password-form"><h2 id="password-title">Choose a new password</h2><p class="dialog-intro">Use at least 12 characters.</p><label class="field">New password<input id="new-password" type="password" autocomplete="new-password" minlength="12" required></label><p id="password-error" class="inline-error" role="alert" hidden></p><div class="dialog-actions"><button class="button primary">Save password</button></div></form></dialog>
-  <dialog id="conflict-dialog" aria-labelledby="conflict-title"><div class="dialog-heading"><h2 id="conflict-title">Review changes</h2><button id="conflict-close" class="close-button" aria-label="Close review">×</button></div><p class="dialog-intro">These items changed both here and online. Choose which versions to keep. All other changes will be combined.</p><div id="conflict-items"></div><p id="conflict-error" class="inline-error" role="alert" hidden></p><button id="conflict-backup" class="link-button">Download device backup first</button><div class="dialog-actions"><button id="conflict-local" class="button secondary">Use device versions</button><button id="conflict-remote" class="button primary">Use online versions</button></div></dialog>`;
+  <dialog id="conflict-dialog" aria-labelledby="conflict-title"><div class="dialog-heading"><h2 id="conflict-title">Review changes</h2><button id="conflict-close" class="close-button" aria-label="Close review">×</button></div><p class="dialog-intro">These items changed both here and online. Choose which versions to keep. All other changes will be combined. When claims are involved, the listed records and claim history must be kept together. Download a backup before choosing.</p><div id="conflict-items"></div><p id="conflict-error" class="inline-error" role="alert" hidden></p><button id="conflict-backup" class="link-button">Download device backup first</button><div class="dialog-actions"><button id="conflict-local" class="button secondary">Use device versions</button><button id="conflict-remote" class="button primary">Use online versions</button></div></dialog>`;
   document.body.append(dialogs);
   let client, engine, session = null, mode = 'loading', recovery = false, queued = null, passwordResetEnabled = false;
   let canEdit = !read().cloud;
@@ -128,6 +128,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
   };
   function describe(value, isKey) {
     if (!value) return 'Removed';
+    if (value.entries) return `${value.entries.length} records · ${(value.claims || value.key?.claims || []).map(claim=>`${claim.name}: ${claim.status}`).join('; ') || 'No claims'}. Choosing this copy keeps its records and claim history together.`;
     if (!isKey) return `${value.date} · ${value.name} · Customer ${value.number}\n${value.types.join(', ')}\n${recordDetails(value,{issues:[]})}`;
     return `${value.currency} · ${value.confirmed ? 'Confirmed' : 'Unconfirmed'}\n${Object.entries(value.rates).map(([label, rate]) => `${label.split(':')[1]}: ${rate.first === null ? '?' : (rate.first / 100).toFixed(2)} / ${rate.second === null ? '?' : (rate.second / 100).toFixed(2)} (${rate.mode || 'unconfirmed'})`).join('\n')}\n${value.source}`;
   }
@@ -137,7 +138,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
     $('#conflict-items').replaceChildren(); message('#conflict-error', '');
     for (const item of conflict.conflicts) {
       const section = document.createElement('section'); section.className = 'conflict-item';
-      const heading = document.createElement('h3'); heading.textContent = item.id === 'bonus-key' ? 'Bonus key' : (item.local || item.remote).name; section.append(heading);
+      const heading = document.createElement('h3'); heading.textContent = item.id.startsWith('claims-') ? 'Records and claim history' : item.id === 'bonus-key' ? 'Bonus key' : (item.local || item.remote).name; section.append(heading);
       for (const [side, title] of [['local', 'On this device'], ['remote', 'Online']]) {
         const label = document.createElement('strong'); label.textContent = title;
         const text = document.createElement('p'); text.textContent = describe(item[side], item.id === 'bonus-key'); section.append(label, text);

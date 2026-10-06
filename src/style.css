@@ -46,3 +46,23 @@ main{max-width:800px;padding:22px 20px 32px}.workspace{display:block}.form-panel
 .third-pair-addons { margin-top:18px; padding:16px; border:1px solid var(--border, #d5dfd1); border-radius:12px; min-width:0; }
 .third-pair-addons legend { padding:0 5px; }
 .third-pair-addons .field-hint { margin:0 0 12px; }
+
+/* Claims use stacked cards and generous touch targets on narrow phones. */
+.claim-card {display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;text-align:left;padding:18px;margin:12px 0;border:1px solid var(--border,#d5dfd1);border-radius:12px;background:white;color:inherit;cursor:pointer;}
+.claim-card span,.claim-choice span {min-width:0;overflow-wrap:anywhere;}
+.claim-card strong,.claim-card small,.claim-choice strong,.claim-choice small {display:block;}
+.claim-card small,.claim-choice small {color:#65756b;margin-top:5px;white-space:pre-line;}
+.claim-card b,.claim-choice b {flex-shrink:0;}
+.claim-choices {max-height:42vh;overflow:auto;margin:16px 0;}
+.claim-choice {display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid #e2e8e2;}
+.claim-choice input {width:22px;height:22px;flex-shrink:0;}
+.claim-choice span {flex:1;}
+.claim-selection-actions {display:flex;gap:24px;margin-top:16px;}
+.claim-history {margin:20px 0;}
+.claim-record-status {display:block;margin-top:6px;font-size:12px;color:#496655;}
+#claim-detail-actions {flex-wrap:wrap;}
+@media(max-width:600px) {.view-toolbar {flex-wrap:wrap;gap:10px;} .view-tabs {flex:1;} .view-tabs button {padding-left:12px;padding-right:12px;} #claims-view {padding:20px;} #claims-view .records-heading {flex-wrap:wrap;gap:12px;}}
+
+#claims-view {padding:24px;}
+#claims-view .records-heading {padding:0;margin-bottom:18px;}
+#claim-summary {margin:12px 0;}

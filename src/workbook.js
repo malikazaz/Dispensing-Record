@@ -22,7 +22,7 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
   const selection = selectExport(state, options);
   const workbook=new ExcelJS.Workbook();
   workbook.creator='Dispensing Record';workbook.created=new Date();workbook.calcProperties.fullCalcOnLoad=true;
-  const currency=state.key.currency==='EUR'?'€':'£';
+  const currency=selection.currency==='EUR'?'€':'£';
   const currencyFormat=`"${currency}"#,##0.00;[Red]("${currency}"#,##0.00);"${currency}"0.00`;
   const total=selection.total;
   const sheet=workbook.addWorksheet(selection.mode === 'custom' ? 'Bonus period' : 'Dispensing Record',{
@@ -33,14 +33,15 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
   sheet.columns=[{width:12},{width:14},{width:27},...GROUPS.types.map(()=>({width:5.5})),{width:55},{width:14}];
   title(sheet,'A1:Q1',selection.name || (selection.mode === 'custom' ? 'BONUS PERIOD' : 'DISPENSING RECORD'));sheet.getRow(1).height=selection.name.length > 50 ? 60 : 39;
   sheet.getCell('A1').alignment={vertical:'middle',wrapText:true};
-  sheet.mergeCells('A2:Q2');sheet.getCell('A2').value=`${selection.entries.length} records  •  ${total.pending?'Confirmed bonus':'Total bonus'}: ${money(total.cents,state.key.currency)}${total.pending?`  •  ${total.pending} pending records excluded from total`:''}`;
+  sheet.mergeCells('A2:Q2');sheet.getCell('A2').value=`${selection.entries.length} records  •  ${total.pending?'Confirmed bonus':'Total bonus'}: ${money(total.cents,selection.currency)}${total.pending?`  •  ${total.pending} pending records excluded from total`:''}`;
   sheet.getCell('A2').font={name:'Calibri',size:11,color:{argb:ink}};sheet.getRow(2).height=25;
   sheet.mergeCells('A3:Q3');sheet.getCell('A3').value=`${periodLabel(selection)}. Lens set and special offers appear in Addons. Bonus values are a snapshot at the time of export.`;
   sheet.getCell('A3').font={name:'Calibri',size:10,color:{argb:'FF6C7C65'}};sheet.getRow(3).height=23;
   sheet.getRow(4).values=PAPER_HEADERS;header(sheet.getRow(4));
   const entries=selection.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
   for(const [index,entry]of entries.entries()) {
-    const result=calculate(entry,state.key),addonText=recordDetails(entry,result);
+    const saved=selection.rows?.find(row=>row.entry.id===entry.id);
+    const result=saved?{cents:saved.cents,issues:[]}:calculate(entry,state.key),addonText=saved?.details ?? recordDetails(entry,result);
     const row=sheet.getRow(index+5);
     row.values=[new Date(`${entry.date}T00:00:00Z`),entry.number,entry.name,...GROUPS.types.map(type=>entry.types.includes(type)?'✓':''),addonText,result.cents===null?'Pending':result.cents/100];
     row.height=Math.max(42,addonText.split('\n').reduce((lines,line)=>lines+Math.max(1,Math.ceil(line.length/49)),0)*13+10,Math.ceil(entry.name.length/25)*13+10,Math.ceil(entry.number.length/13)*13+10);
