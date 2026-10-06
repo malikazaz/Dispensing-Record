@@ -59,7 +59,7 @@ The current implementation and documented user clarifications are the reference;
 
 - Keep Account controls in the header menu. Retain the date after saving/clearing the form; provide previous/next-day arrows and return to the entry area after a save.
 - Keep customer numbers as text with a numeric keyboard hint, preserving leading zeros. Request word capitalisation for names; numeric characters in names show an advisory red warning.
-- **Recorded today** uses the dispense date, not entry or submission timestamps.
+- Summary cards are **Unclaimed bonus** (including draft claims), **Claimed bonus** (submitted claims only), and **All-time total** (their sum across currently saved records). Use frozen active-claim amounts, exclude pending/other-currency amounts with a note, and never add cancelled/undone history twice. The record count is on the Records tab.
 - Check narrow portrait layouts and native iOS date controls; fields must not overlap or cause horizontal overflow. Keep touch targets practical.
 - Preserve the 17 paper-table headings. PDF and Excel exports contain records and totals, with no bonus-key appendix or worksheet.
 - Ordinary Export includes only unclaimed records. Saved claim downloads use the exact snapshot and stable claim reference, without recalculating from the current key.

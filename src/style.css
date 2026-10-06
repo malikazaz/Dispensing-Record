@@ -66,3 +66,12 @@ main{max-width:800px;padding:22px 20px 32px}.workspace{display:block}.form-panel
 #claims-view {padding:24px;}
 #claims-view .records-heading {padding:0;margin-bottom:18px;}
 #claim-summary {margin:12px 0;}
+
+/* Let each tab fill one third of the bar instead of leaving an empty tail. */
+.view-tabs {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));min-width:0;}
+.view-tabs button {min-width:0;text-align:center;}
+@media(max-width:600px) {
+  .view-tabs {flex:1 1 252px;}
+  .view-tabs button {padding-inline:6px;white-space:nowrap;}
+  .view-toolbar>#export {margin-left:auto;}
+}

@@ -1,5 +1,5 @@
 import { installClaimsUI } from './claims-ui.js';
-import { claimsOf, activeClaim, unclaimedEntries, recordBonus, duplicateReceipts } from './claims.js';
+import { claimsOf, activeClaim, unclaimedEntries, recordBonus, bonusSummary, duplicateReceipts } from './claims.js';
 import './style.css';
 import { loadExporter, ExportLoadError } from './export-loader.js';
 import { GROUPS, ACTIVE_BONUS_GROUPS, THIRD_PAIR_OFFERS, thirdPairRate, thirdPairBase, hasLegacyThirdPair, MODES, blankEntry, lensSetsOf, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
@@ -29,10 +29,10 @@ $('#app').innerHTML = `
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <div id="storage-error" class="warning" role="alert" hidden></div>
     <p id="locked-message" class="locked-message" hidden>Open Account to sign in to your records.</p>
-    <section class="stats" aria-label="Record summary">
-      <div class="stat"><span class="stat-label">Total bonus <span id="total-status"></span></span><strong id="total">€0.00</strong><span id="total-caption" class="stat-note">Across all records</span></div>
-      <div class="stat"><span class="stat-label">Dispensing records</span><strong id="count">0</strong></div>
-      <div class="stat"><span class="stat-label">Recorded today</span><strong id="today-count">0</strong></div>
+    <section class="stats" aria-label="Bonus summary">
+      <div class="stat"><span class="stat-label">Unclaimed bonus</span><strong id="unclaimed-bonus">€0.00</strong></div>
+      <div class="stat"><span class="stat-label">Claimed bonus</span><strong id="claimed-bonus">€0.00</strong></div>
+      <div class="stat"><span class="stat-label">All-time total <span id="total-status"></span></span><strong id="total">€0.00</strong><span id="total-caption" class="stat-note" hidden></span></div>
     </section>
     <div class="view-toolbar"><div class="view-tabs" role="tablist" aria-label="Workspace"><button id="tab-entry" role="tab" aria-selected="true" aria-controls="entry-view">New dispense</button><button id="tab-records" role="tab" aria-selected="false" aria-controls="records-view" tabindex="-1">Records</button><button id="tab-claims" role="tab" aria-selected="false" aria-controls="claims-view" tabindex="-1">Claims</button></div><button id="export" class="button secondary" aria-label="Export records">${icon('download')}<span>Export</span></button></div>
     <div class="workspace">
@@ -193,15 +193,15 @@ function updatePreview() {
 function dateText(date) { return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(`${date}T12:00:00`)); }
 function renderRecords() {
   claimsUI?.render();
-  const totals = state.entries.reduce((sum,entry)=>{const result=recordBonus(state,entry);if(result.cents===null)sum.pending++;else if(result.currency===state.key.currency)sum.cents+=result.cents;else sum.otherCurrency++;return sum;},{cents:0,pending:0,otherCurrency:0});
+  const totals = bonusSummary(state);
+  $('#unclaimed-bonus').textContent = fmt(totals.unclaimed);
+  $('#claimed-bonus').textContent = fmt(totals.claimed);
   $('#total').textContent = fmt(totals.cents);
   $('#total-status').textContent = totals.pending ? '· confirmed' : '';
   $('#total-caption').textContent = totals.pending ? `${totals.pending} pending ${totals.pending===1?'record excluded':'records excluded'}` : '';
   if(totals.otherCurrency)$('#total-caption').textContent+=` ${totals.otherCurrency} records use another currency; see Claims.`;
   $('#total-caption').hidden = !totals.pending && !totals.otherCurrency;
-  $('#count').textContent = state.entries.length;
   $('#record-badge').textContent = state.entries.length;
-  $('#today-count').textContent = state.entries.filter(e=>e.date===localDate()).length;
   $('#export').disabled = !unclaimedEntries(state).length;
   const query = $('#search').value.trim().toLocaleLowerCase();
   const entries = state.entries.filter(e=>`${e.name} ${e.number}`.toLocaleLowerCase().includes(query)).slice().sort((a,b)=>b.date.localeCompare(a.date));

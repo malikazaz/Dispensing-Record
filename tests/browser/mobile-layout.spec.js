@@ -60,3 +60,17 @@ test('custom export date fields stay inside the dialog without overlapping',asyn
     expect(await page.locator('#export-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   }
 });
+
+test('tabs fill their bar evenly on large phones and fit narrow screens',async({page})=>{
+ await page.goto('/');
+ for(const width of [320,375,390,430,440,540,600,768]){
+  await page.setViewportSize({width,height:956});await page.locator('#tab-claims').click();
+  const layout=await page.locator('.view-tabs').evaluate(bar=>({bar:bar.getBoundingClientRect().toJSON(),buttons:[...bar.children].map(button=>{const range=document.createRange();range.selectNodeContents(button);return {rect:button.getBoundingClientRect().toJSON(),text:range.getBoundingClientRect().toJSON()};})}));
+  const [first,,last]=layout.buttons;
+  expect(Math.abs(first.rect.width-last.rect.width)).toBeLessThanOrEqual(1);
+  expect(layout.bar.right-last.rect.right).toBeLessThanOrEqual(5);
+  for(const button of layout.buttons){expect(button.text.left).toBeGreaterThanOrEqual(button.rect.left);expect(button.text.right).toBeLessThanOrEqual(button.rect.right);expect(button.rect.height).toBeGreaterThanOrEqual(44);}
+  await expect(page.locator('#tab-claims')).toHaveAttribute('aria-selected','true');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ }
+});

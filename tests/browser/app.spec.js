@@ -37,7 +37,7 @@ test('save, persist, edit, export exact paper table and remove on desktop and mo
   expect(sheet.getRow(4).values.slice(1)).toEqual(['Date','Cust No','CX Name','SV','BIF','Vari','241','Other','RE','70','95','130','160','190','240','Addons','Bonus']);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   page.once('dialog',dialog=>dialog.accept());await showRecords(page);await page.getByRole('button',{name:'Remove Alex Morgan',exact:true}).click();
-  await expect(page.locator('#count')).toHaveText('0');await expect(page.locator('#total')).toHaveText('€0.00');
+  await expect(page.locator('#record-badge')).toHaveText('0');await expect(page.locator('#total')).toHaveText('€0.00');
   expect(errors).toEqual([]);
 });
 test('second-pair SV with many add-ons pays one flat five euro bonus',async({page})=>{
@@ -67,14 +67,14 @@ test('JSON backup restores leading-zero IDs and rejects damaged data',async({pag
   page.once('dialog',d=>d.accept());await page.locator('#restore-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer});
   await expect(page.locator('#records')).toContainText('#001234');
   await page.locator('#restore-file').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{"version":99}')});
-  await expect(page.locator('#notice')).toContainText('Could not restore');await expect(page.locator('#count')).toHaveText('1');
+  await expect(page.locator('#notice')).toContainText('Could not restore');await expect(page.locator('#record-badge')).toHaveText('1');
 });
 test('stale tabs preserve newer records and warn before overwriting',async({page,context})=>{
   await page.goto('/');const other=await context.newPage();await other.goto('/');
   await startRecord(page);await page.getByRole('button',{name:'Save dispense',exact:true}).click();
   await startRecord(other,'Another customer','2');await other.getByRole('button',{name:'Save dispense',exact:true}).click();
   await expect(other.locator('#storage-error')).toContainText('Changes were not saved');
-  await other.reload();await expect(other.locator('#count')).toHaveText('1');await expect(other.locator('#records')).toContainText('Alex Morgan');
+  await other.reload();await expect(other.locator('#record-badge')).toHaveText('1');await expect(other.locator('#records')).toContainText('Alex Morgan');
 });
 test('production interface handles narrow screens and stores entered text without HTML execution',async({page},testInfo)=>{
   await page.goto('/');await startRecord(page,'<img src=x onerror=alert(1)>','00001');await select(page,'160');await select(page,'UCSC');
@@ -117,7 +117,7 @@ test('custom period exports only inclusive dates as its own named section with a
   expect(sheet.getCell('A1').value).toBe('October bonuses');expect(sheet.getCell('A3').value).toContain('01/10/2026 – 31/10/2026');
   expect([5,6,7,8].map(row=>sheet.getCell(`B${row}`).value)).toEqual(['0001','0005','0002','0003']);
   expect(sheet.getCell('Q9').value).toEqual({formula:'SUM(Q5:Q8)',result:6});
-  expect(book.worksheets).toHaveLength(1);await expect(page.locator('#count')).toHaveText('6');
+  expect(book.worksheets).toHaveLength(1);await expect(page.locator('#record-badge')).toHaveText('6');
   await expect(page.locator('#total')).toHaveText('€10.00');
 });
 
@@ -132,7 +132,7 @@ test('custom export rejects reversed, incomplete and empty periods; cancellation
   await expect(page.locator('#export-summary')).toContainText('No records');await expect(page.locator('#download-export')).toBeDisabled();
   await page.getByLabel('Start date',{exact:true}).fill('2026-10-05');await page.getByLabel('End date',{exact:true}).fill('2026-10-05');
   await expect(page.locator('#export-summary')).toContainText('1 record');await expect(page.locator('#download-export')).toBeEnabled();
-  await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page.locator('#count')).toHaveText('1');
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page.locator('#record-badge')).toHaveText('1');
   await page.getByRole('button',{name:'Export records',exact:true}).click();await expect(page.getByLabel('Start date',{exact:true})).toHaveValue('2026-10-05');
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('all');await expect(page.locator('#export-dates')).toBeHidden();await expect(page.locator('#download-export')).toBeEnabled();
 });
@@ -153,7 +153,7 @@ test('PDF download uses the chosen period and section, while Excel remains avail
   const buffer=await fs.readFile(await file.path());const pages=await readPdf(buffer);const text=pages.map(p=>p.text).join(' ');
   expect(text).toContain('October PDF bonuses');expect(text).toContain('TOTAL BONUS');expect(text).toContain('€10.00');
   expect(text).toContain('0091');expect(text).toContain('0092');expect(text).not.toContain('0090');expect(text).not.toContain('0093');
-  await expect(page.locator('#count')).toHaveText('4');
+  await expect(page.locator('#record-badge')).toHaveText('4');
   await page.getByRole('button',{name:'Export records',exact:true}).click();
   await page.getByRole('combobox',{name:'File format',exact:true}).selectOption('xlsx');await expect(page.getByRole('button',{name:'Download Excel',exact:true})).toBeEnabled();
   expect(errors).toEqual([]);

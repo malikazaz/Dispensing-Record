@@ -59,7 +59,14 @@ Saving a **draft** freezes each selected record's details, add-on description, b
 
 Unclaimed records continue to use the current key. To change the records or amounts in a draft, cancel it, make the corrections, and create a new draft. The old draft stays in the history.
 
-The top **Total bonus** combines current unclaimed amounts with frozen amounts from active claims in the current currency. It is not an unclaimed balance or an amount awaiting payment. Claims in another currency keep their original currency; the summary excludes those records and points you to Claims rather than adding unlike currencies. **Recorded today** counts records whose dispense date is today, not records entered or submitted today.
+The top cards show:
+
+- **Unclaimed bonus:** confirmed bonuses not yet submitted, including records reserved in saved drafts. Draft amounts remain frozen.
+- **Claimed bonus:** the frozen amounts in submitted claims. This means submitted, not approved or paid.
+- **All-time total:** unclaimed plus claimed across all currently saved records, regardless of dispense month. It counts each record once; cancelled/undone claim snapshots are not added again. Removed records are not included.
+
+Pending bonuses are excluded. Undoing submission moves released records back to unclaimed using the current key. Claims in another currency retain that currency; the cards exclude those records and display a note rather than adding unlike currencies. The record count is available on the Records tab.
+
 
 ## Correct a mistake
 

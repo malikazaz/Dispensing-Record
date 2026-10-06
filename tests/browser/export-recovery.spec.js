@@ -32,7 +32,7 @@ for (const format of ['pdf','xlsx']) {
     await page.unroute(pattern);
     const refreshed=page.waitForRequest(request=>request.isNavigationRequest() && request.url().includes('app-refresh='));
     await page.locator('#refresh-export').click(); await refreshed;
-    await expect(page.locator('#count')).toHaveText('30');
+    await expect(page.locator('#record-badge')).toHaveText('30');
     await expect(page.locator('#total')).toHaveText('€60.00');
     expect(await page.evaluate(()=>localStorage.getItem('dispensing-record:v1'))).toBe(original);
     await page.getByRole('button',{name:'Export records',exact:true}).click();

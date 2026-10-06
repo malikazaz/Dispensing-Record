@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { initialState, blankEntry, validateState } from '../src/model.js';
-import { createClaim, changeClaimStatus, claimsOf, unclaimedEntries, duplicateReceipts, recordBonus } from '../src/claims.js';
+import { createClaim, changeClaimStatus, claimsOf, unclaimedEntries, duplicateReceipts, recordBonus, bonusSummary } from '../src/claims.js';
 import { documentOf, mergeDocuments, CloudSync } from '../src/cloud-model.js';
 import { saveState, loadState } from '../src/storage.js';
 import { selectExport } from '../src/export-selection.js';
@@ -71,4 +71,21 @@ test('uncertain claim upload with later remote changes requires explicit history
  let remote={payload:changeClaimStatus(sent,claimsOf(sent)[0].id,'submitted'),version:3},mode;
  const engine=new CloudSync({project:'project',active:()=>true,read:()=>local,write:next=>(local={...next,revision:crypto.randomUUID()}),status:next=>mode=next,adapter:{load:async()=>remote,write:async(_,payload,version)=>(remote={payload,version:version+1})}});
  await engine.run('owner');assert.equal(mode,'conflict');assert.equal(engine.conflict.conflicts[0].id,'claims-document');engine.resolve('remote');await engine.run('owner');assert.equal(mode,'saved');assert.equal(claimsOf(local)[0].status,'submitted');assert.equal(unclaimedEntries(local).length,2);
+});
+
+test('summary separates submitted claims from drafts and counts each saved receipt once',()=>{
+ let state=sample();assert.deepEqual(bonusSummary(state),{unclaimed:600,claimed:0,cents:600,pending:0,otherCurrency:0});
+ state=createClaim(state,'September',['sept-a']);const id=claimsOf(state)[0].id;
+ assert.equal(bonusSummary(state).unclaimed,600);
+ state.key.rates['addons:Elite'].first=900;
+ assert.deepEqual(bonusSummary(state),{unclaimed:2000,claimed:0,cents:2000,pending:0,otherCurrency:0});
+ state=changeClaimStatus(state,id,'submitted');
+ assert.deepEqual(bonusSummary(state),{unclaimed:1800,claimed:200,cents:2000,pending:0,otherCurrency:0});
+ state=changeClaimStatus(state,id,'void');assert.deepEqual(bonusSummary(state),{unclaimed:2700,claimed:0,cents:2700,pending:0,otherCurrency:0});
+ state=createClaim(state,'Corrected',['sept-a']);state=changeClaimStatus(state,claimsOf(state).at(-1).id,'submitted');assert.equal(bonusSummary(state).claimed,900);assert.equal(bonusSummary(state).cents,2700);
+});
+test('summary excludes pending bonuses and never combines different currencies',()=>{
+ let state=createClaim(sample(),'Saved euros',['sept-a']);state=changeClaimStatus(state,claimsOf(state)[0].id,'submitted');state.key.currency='GBP';
+ assert.deepEqual(bonusSummary(state),{unclaimed:400,claimed:0,cents:400,pending:0,otherCurrency:1});
+ state.key.confirmed=false;assert.deepEqual(bonusSummary(state),{unclaimed:0,claimed:0,cents:0,pending:2,otherCurrency:1});
 });

@@ -62,7 +62,7 @@ test('sign in, explicitly migrate local data and key, then restore on a fresh br
   try {
     await mock(fresh, server, session()); const restored = await fresh.newPage(); await restored.goto('http://127.0.0.1:4173/');
     await expect(restored.locator('#cloud-status')).toHaveText('Saved online and on this device.');
-    await expect(restored.locator('#records')).toContainText('Existing customer'); await expect(restored.locator('#count')).toHaveText('2');
+    await expect(restored.locator('#records')).toContainText('Existing customer'); await expect(restored.locator('#record-badge')).toHaveText('2');
     await expect(restored.locator('#total')).toContainText('£');
   } finally { await fresh.close(); }
 });

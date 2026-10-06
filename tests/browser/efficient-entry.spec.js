@@ -11,7 +11,7 @@ test('Super Boost follows Supereader, survives saving, and leaves the bonus key 
   for(const value of ['SV','Super Boost','second','Super Boost']) await select(value);
   await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€0.00');
   await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
-  await page.reload(); await expect(page.locator('#count')).toHaveText('1');
+  await page.reload(); await expect(page.locator('#record-badge')).toHaveText('1');
   await expect(page.locator('#total')).toHaveText('€0.00');
   await showRecords(page); await expect(page.locator('#records')).toContainText('Super Boost');
   await page.getByRole('button', { name: 'Edit Record only', exact: true }).click();
@@ -38,7 +38,7 @@ test('241 keeps both varifocals but credits one, including after reload and edit
   await select('241'); await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.00');
   await expect(page.locator('#bonus-preview .breakdown')).not.toContainText('free under 241');
   await select('241'); await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.locator('#count')).toHaveText('1'); await expect(page.locator('#total')).toHaveText('€7.00');
+  await expect(page.locator('#record-badge')).toHaveText('1'); await expect(page.locator('#total')).toHaveText('€7.00');
 });
 
 test('free Supereader earns included UCSC or index upgrade without stacking and survives saving', async ({ page }) => {
@@ -88,7 +88,7 @@ test('switching lens sets keeps independent choices and saves both in one record
   await expect(page.locator('#third-pair-enabled')).toBeChecked();
   await page.locator('#third-pair-enabled').uncheck();
   await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
-  await expect(page.locator('#count')).toHaveText('1');
+  await expect(page.locator('#record-badge')).toHaveText('1');
   await expect(page.locator('input:not([name="thirdAddons"])[value="UCSC"]')).not.toBeChecked();
   await select('second'); await expect(page.locator('input:not([name="thirdAddons"])[value="UCSC"]')).not.toBeChecked();
   await page.reload(); await expect(page.locator('#total')).toHaveText('€6.50');
@@ -98,7 +98,7 @@ test('switching lens sets keeps independent choices and saves both in one record
   await select('UCSC');
   await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€5.00');
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-  await expect(page.locator('#count')).toHaveText('1');
+  await expect(page.locator('#record-badge')).toHaveText('1');
   await expect(page.locator('#total')).toHaveText('€5.00');
 });
 
@@ -146,7 +146,7 @@ test('batch entry keeps its date, steps days, and returns to the top of a cleare
   await expect(date).toHaveValue('2024-02-28');
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(date).toHaveValue('2024-02-29');
-  await expect(page.locator('#count')).toHaveText('2');
+  await expect(page.locator('#record-badge')).toHaveText('2');
 });
 test('account controls stay in the header menu and dismiss with Escape or outside click', async ({ page }) => {
   await page.goto('/'); await expect(page.locator('#account-menu')).toBeHidden();

@@ -35,3 +35,17 @@ export function recordBonus(state,entry) {
   return {cents,subtotal:cents,parts:[],issues:[],currency:claim.currency};
 }
 export const claimAmount = claim => money(claim.total,claim.currency);
+
+// Drafts reserve records, but only a submitted claim counts as claimed money.
+export function bonusSummary(state) {
+  const totals={unclaimed:0,claimed:0,cents:0,pending:0,otherCurrency:0};
+  for(const entry of state.entries) {
+    const result=recordBonus(state,entry);
+    if(result.cents===null){totals.pending++;continue;}
+    if(result.currency!==state.key.currency){totals.otherCurrency++;continue;}
+    const bucket=activeClaim(state,entry.id)?.status==='submitted'?'claimed':'unclaimed';
+    totals[bucket]+=result.cents;
+  }
+  totals.cents=totals.unclaimed+totals.claimed;
+  return totals;
+}
