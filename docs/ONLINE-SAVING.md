@@ -2,6 +2,8 @@
 
 The website remains on GitHub Pages. Supabase provides account sign-in and a private database. Only a project URL and **publishable key** are included in the website; database policies enforce access. Never put a `service_role`, `sb_secret_`, database password, or Supabase management token in the repository or GitHub Pages build.
 
+For selecting receipts and submitting bonuses, see the [claims user guide](CLAIMS.md). Existing installations need no new database setup for claim tracking.
+
 ## One-time database setup
 
 1. Create a project in your own Supabase account using the **Free** plan and an appropriate region. Enable the Data API, disable automatic exposure of new tables, and enable automatic RLS. The migration explicitly grants only the required table privileges.
@@ -39,7 +41,7 @@ For local development, set the same environment variables and run `node scripts/
 
 On her original phone/browser, open **Account** in the header and download a JSON backup first. Sign in from that menu with her **app** email/password. If this browser has existing records or a customised key, select **Connect and upload** to combine them with the online copy. A blank browser automatically downloads its account's online records. Wait for **Saved online and on this device** in the Account menu before relying on recovery from another device. **Sync now**, sign-out, bonus-key settings and backups are also in this menu; the header's small status indicator stays visible when the menu is closed.
 
-Records, edits, removals and the bonus key all sync. Changing the key continues to recalculate all records. Backups contain only records and the key, without login tokens or sync bookkeeping. Restoring a backup while connected intentionally replaces the device records and syncs that change online after confirmation. Exported Excel/PDF files continue to be generated on the device.
+Records, edits, removals, claim history and the bonus key all sync. Changing the key recalculates unclaimed records; draft and submitted claims retain their saved details, amounts and currency. Backups include records, the key and its claim ledger, without login tokens or sync bookkeeping. Restoring a backup while connected intentionally replaces records, rates and claim history and syncs that replacement online after confirmation. An older backup may remove submission history and release receipts, so review claims after restoring. Exported Excel/PDF files continue to be generated on the device.
 
 Sign-out hides cached records in the interface, but keeps them in browser storage so pending changes are not lost. Sign in to the same account to access them again. A different account cannot inherit or upload the cached records. This is intended for a personal phone; the cache is not encrypted and signing out is not a secure erase of that phone's data. Do not share a browser profile for customer data.
 
@@ -47,11 +49,11 @@ Sign-out hides cached records in the interface, but keeps them in browser storag
 
 Every edit is committed to localStorage first. **Waiting to sync** means those changes have not yet been confirmed online. The app retries on another edit, returning to the page, reconnecting, or pressing **Sync now**. The app must already be loaded to keep working during an outage: there is no service worker guaranteeing an offline page reload.
 
-Sync compares both copies against their last shared copy. Separate record edits combine; deletions remain deletions. If both copies change the same record or the key differently, **Review changes** shows both versions. Choose the device or online versions for those conflicts; non-conflicting changes remain combined. Download a backup from this review before choosing if needed. An uncertain upload followed by further server changes also triggers review instead of guessing.
+Sync compares both copies against their last shared copy. Before any claim history exists, separate record edits combine and deletions remain deletions. Once claim history exists, records and claim reservations are kept together as one unit; concurrent changes to that unit require **Review changes** rather than combining potentially overlapping claims. Independent rate changes can still merge separately. The review shows which unit is being chosen. Download a backup before choosing because that choice can include unrelated record changes in the same unit. An uncertain upload followed by further server changes also triggers review instead of guessing. See [claim history and sync](#claim-history-and-sync).
 
 The database uses an increasing revision and conditional writes to prevent stale-device overwrites. Pending upload intent is saved atomically with local records, allowing recovery after a response is lost. Local tabs use a browser lock where supported plus localStorage revision checking; a stale tab asks for reload instead of overwriting newer data. A record or key that changes online during an open edit must be reopened before saving.
 
-Only records confirmed online are recoverable if browser data is cleared. Unsynced records still depend on that device or a downloaded backup. Keep periodic JSON backups even with online saving.
+Only records, claim statuses and key changes confirmed online are recoverable if browser data is cleared. Unsynced changes still depend on that device or a downloaded backup. Keep periodic JSON backups even with online saving.
 
 ## Account recovery and paused projects
 
@@ -59,11 +61,11 @@ Email/password sign-in does not require a custom email service for an administra
 
 If a custom SMTP service is later configured and tested, set `SUPABASE_PASSWORD_RESET_ENABLED=true` and redeploy. The app supports requesting reset emails and setting a new password after following a recovery link.
 
-A free project can pause after low activity. Resume it from the Supabase dashboard, then press **Sync now** in the app. Do not assume cloud data is retained indefinitely while paused; consult the current [pausing policy](https://supabase.com/docs/guides/platform/free-project-pausing). The current policy permits dashboard restoration for one year after pausing. No artificial keep-alive traffic is generated.
+A free project can pause after low activity. Resume it from the Supabase dashboard, then press **Sync now** in the app. Do not assume cloud data is retained indefinitely while paused; consult the current [pausing policy](https://supabase.com/docs/guides/platform/free-project-pausing). No artificial keep-alive traffic is generated.
 
 ## Verification
 
-`npm test` includes three-way merge, offline/lost-response recovery, in-flight edits, conflicts, stale writes, account binding, public config validation and real Postgres RLS tests using PGlite. `npm run test:e2e` checks mock Supabase authentication/sync in Chromium and WebKit, including a fresh browser recovery and small phone layouts. Mock/local checks are not a substitute for a one-time live sign-in and upload/download check after project setup.
+`npm test` includes three-way merge, offline/lost-response recovery, in-flight edits, conflicts, stale writes, account binding, public config validation and real Postgres RLS tests using PGlite. `npm run test:e2e` checks mock Supabase authentication/sync in Chromium and WebKit, including fresh-browser recovery and small phone layouts. Claims checks cover bulk month/all selection, fixed exports after key edits, submission locks, corrections and duplicate-receipt warnings. Mock/local checks are not a substitute for a one-time live sign-in and upload/download check after project setup.
 
 ## Claim history and sync
 
@@ -72,3 +74,11 @@ The claim ledger is an optional `key.claims` field in the existing private docum
 With a claim ledger present, records and claim reservations merge as one unit. Concurrent changes to that unit require an explicit device/online choice; independent rate changes still merge separately. This intentionally avoids combining overlapping claims or an edit/deletion with a claim that locks the same record. The review identifies both histories; download a backup before choosing because unrelated changes in that record/history unit follow the selected copy. Lost-response recovery uses the same rule.
 
 Claims are application-level tracking for one user, not a server-enforced accounting ledger. Only synced changes are recoverable on another device. Do not create/submit claims independently on multiple offline devices; sync first and resolve conflicts before sending a report. Reload old app tabs: older builds do not understand record locks, although they preserve the ledger inside the key; the new validator rejects claimed records changed by an older client instead of silently changing the saved claim.
+
+### Claim document and transitions
+
+Each item in `key.claims` has an ID, name, status, currency, integer-cent total, snapshot rows and timestamped history events. Each row stores the original entry, its integer-cent bonus and the rendered add-on description. It does not retain a copy of the entire bonus key, so claim snapshots do not recursively include earlier claims.
+
+Allowed transitions are `draft → submitted → void` and `draft → cancelled`. The UI labels `void` as **Submission undone**. Corrections append history and preserve the old snapshot; they do not reopen or overwrite the old claim. Only draft/submitted claims reserve records and can be exported. Their original records must remain present and unchanged, and a record cannot appear in two active claims.
+
+Draft selection compares the current records/key with the displayed copy before saving. Changes to sync metadata alone do not interrupt selection. Confirmation actions reject a claim that changed since it was opened. A lost-response conflict involving claims requires an explicit whole-document choice to preserve the relationship between the claim ledger and records.

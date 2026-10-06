@@ -1,6 +1,8 @@
 # Dispensing Record
 
-A mobile-friendly dispensing log with local saving, optional private Supabase sign-in and online saving, and formatted Excel/PDF exports. Plain JavaScript + Vite, with ExcelJS and pdfmake generating reports entirely on the device. GitHub Pages remains the free static host. See [online-saving setup](docs/ONLINE-SAVING.md) to connect your own Supabase project.
+A mobile-friendly dispensing log with local saving, optional private Supabase sign-in and online saving, bonus-claim tracking, and formatted Excel/PDF exports. Plain JavaScript + Vite, with ExcelJS and pdfmake generating reports entirely on the device. GitHub Pages remains the free static host. See [online-saving setup](docs/ONLINE-SAVING.md) to connect your own Supabase project.
+
+For day-to-day submissions, see the [claims user guide](docs/CLAIMS.md). It covers bulk selection, previous-month receipts, downloads, submission status and corrections.
 
 ## Run locally
 
@@ -22,16 +24,18 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 
 ## Use the app
 
-1. Enter date, customer number and customer name. Customer numbers remain text, preserving leading zeros. Customer names show a red warning if a number is typed or pasted; removing the number clears it. This is an advisory warning and does not change entered text. Use the arrows beside the date to move one day backward/forward, or tap the date to use the calendar.
+1. Enter date, customer number and customer name. Customer numbers open the numeric keyboard on supported phones and remain text, preserving leading zeros. iOS is asked to capitalise each word in customer names. Customer names show a red warning if a number is typed or pasted; removing the number clears it. This is an advisory warning and does not change entered text. Use the arrows beside the date to move one day backward/forward, or tap the date to use the calendar.
 2. Tick the relevant paper columns and both frame prices for the customer. Select **1st set of lenses** and choose its add-ons/offers, then **2nd set of lenses** for its own choices. Each set remembers its selections when switching; the customer, date and frame selections are shared. Both sets save as one record.
 3. Open **Special offers** when relevant. The bonus and its breakdown update immediately.
-4. Save the dispense. The form clears customer/dispense choices, keeps the selected date and scrolls back to the top of the form for the next customer. The date also survives a page refresh in the same tab. Editing an older record does not change your new-entry date. **Clear form** clears the current customer, both sets of add-ons/offers and dispense selections, retains the displayed date, and returns to the top. During editing it discards unsaved changes without altering the saved record. Open **Records** to search, edit or remove saved entries; removing asks for confirmation.
+4. Save the dispense. The form clears customer/dispense choices, keeps the selected date and scrolls back to the top of the form for the next customer. The date also survives a page refresh in the same tab. Editing an older record does not change your new-entry date. **Clear form** clears the current customer, both sets of add-ons/offers and dispense selections, retains the displayed date, and returns to the top. During editing it discards unsaved changes without altering the saved record. Open **Records** to search saved entries and edit or remove unclaimed records; removing asks for confirmation. Records reserved in draft or submitted claims are locked until their claim is cancelled or its submission is undone.
 5. Use **Claims → Create claim** for bonus submissions (see below). **Export** opens an unclaimed-records report. Choose **Excel (.xlsx)** or **PDF (.pdf)**, then **This month**, **Last month**, **Custom dates** or **All unclaimed records**. Optionally name the section, review its record count and bonus total, and select **Download Excel** or **Download PDF**.
 6. Tap **Account** in the header for sign-in, sync status, **Sync now**, **Bonus key**, and backup/restore controls. **Download backup** saves all records, claim history and the bonus key in a restorable JSON file. The small account indicator is green after an online save and amber when attention is needed; open the menu for the full status.
 
 ### Bonus claims and previous-month receipts
 
-1. Open **Claims → Create claim**. Name the claim (for example, “October bonuses”). Tap **Select all** for all unclaimed receipts, or choose **Receipt month** and **Select this month**. Untick individual receipts to leave them for later. Selections can span months, including September leftovers; optional dispense-date filters do not change their original dates. Pending bonuses must be resolved before selection.
+See the [complete claims guide](docs/CLAIMS.md) for status meanings, examples and troubleshooting.
+
+1. Open **Claims → Create claim**. Name the claim (for example, “October bonuses”). Tap **Select all** for all unclaimed receipts, or choose **Receipt month** and **Select this month**. Untick individual receipts to leave them for later. Selections can span months, including September leftovers; optional dispense-date filters do not change their original dates. **Select shown** selects the date-filtered list. Selections remain selected across filters; **Clear selection** clears all selections. Pending bonuses must be resolved before selection.
 2. **Save draft claim** freezes the selected records, currency, bonus amounts and add-on descriptions. It reserves those records so they cannot be selected again or edited/deleted while in the claim. To adjust a draft, cancel it and prepare a new one.
 3. Open the claim and choose **Download claim** for PDF or Excel. Both formats contain the same saved records and amounts, with a stable claim reference. Downloading alone never changes its status.
 4. After sending the claim, choose **Mark submitted** and confirm its count and total. Submitted records stay locked and excluded from future claims. The history records when the draft was prepared and when it was marked submitted.
@@ -60,7 +64,7 @@ Private browsing and clearing browser data can remove the local copy, including 
 
 ## Bonus key and agreed rules
 
-The user supplied the full key and exact table headings directly on 5 October 2026. The original paper image was unavailable, so the workbook reproduces the headings and tick-column structure without claiming an exact visual facsimile.
+The user supplied the full key and exact table headings directly on 5 October 2026. The exports reproduce the supplied headings and tick-column structure, using the clarified prices and rules rather than older printed prices on the handwritten example.
 
 | Add-on | 1st set | 2nd set |
 | --- | ---: | ---: |
@@ -86,8 +90,8 @@ Elite, Tailormade and Supereader (Superreader) normally use the listed rate in e
 
 | Offer | Behaviour |
 | --- | --- |
-| 2nd pair SV, no add-ons | €3 total, replacing the ordinary base/frame calculation. Requires SV and the second lens set. |
-| 2nd pair with any add-ons | **€5 total once**, replacing the basic pair, frame and all individual add-on payments. Applies only to second-pair single vision (SV). Select the second-pair SV offer (automatic with paid add-ons) or second-pair add-ons; varifocals are ineligible. Selecting both never pays twice. |
+| 2nd pair SV, no add-ons | €3 for the second set. Requires SV and the second lens set. First-set and shared frame bonuses remain on paired records. |
+| 2nd pair with any add-ons | **€5 once for the second set**, replacing its basic amount and individual add-on payments. First-set and shared frame bonuses remain on paired records. Applies only to second-pair single vision (SV). Select the second-pair SV offer (automatic with paid add-ons) or second-pair add-ons; varifocals are ineligible. Selecting both never pays twice. |
 | Golden Ticket / Third pair half price | One offer: €2 base immediately, plus €1 per separately selected third-pair add-on. Miyosmart adds zero. |
 
 **Basic second-pair rate:** the full key says €3. The later clarification said “€3 (or €2, whichever it is)”; the app therefore retains the explicit €3 rate. This is editable under **Bonus key**.
@@ -112,11 +116,11 @@ Date | Cust No | CX Name | SV | BIF | Vari | 241 | Other | RE |
 
 Selected columns get a tick. Lens set and special offers appear within **Addons**, preserving the heading list. Records within the selected export sort chronologically. Dates are native Excel dates, IDs are text, bonuses are numeric currency values, and **TOTAL** is an Excel SUM formula with a cached result covering only the exported rows. Pending bonuses are explicitly labelled and excluded from the total. Header rows and customer columns are frozen, and filters are included. The wide paper grid prints in landscape A3, one page wide and as many pages tall as needed; change paper size in Excel if desired.
 
-Exports contain only the dispensing records and totals; the bonus key remains available in the app. Record bonuses are snapshots: editing cells in Excel does not rerun the app's rules. Edit in the app and export again for recalculated bonuses. User text is written as string cells, never interpreted as Excel formulas.
+Exports contain only the dispensing records and totals; the bonus key remains available in the app. Editing cells in Excel does not rerun the app's rules. Ordinary reports use the current unclaimed records and rates. Claim exports use the frozen draft/submitted snapshot; downloading them again does not recalculate their bonuses. User text is written as string cells, never interpreted as Excel formulas.
 
 ## PDF layout
 
-The **PDF** option downloads a real `.pdf` file, with the same inclusive date filtering, section name, selected records and confirmed bonus total as Excel. It uses the original 17 paper-table headings in landscape A3 to keep the wide table readable. Selected columns use an **X**, with lens set and special offers in **Addons**. It includes a dated report heading, repeated table headings, page numbers, and pending-bonus warnings. Customer numbers retain leading zeros; embedded Roboto fonts support currency symbols and accented names. Long rows wrap and remain together across page breaks.
+The **PDF** option downloads a real `.pdf` file. Ordinary reports use the same inclusive date filtering, section name, unclaimed records and confirmed bonus total as Excel. Claim downloads use the saved claim name, reference, records, currency and fixed amounts in either format. It uses the original 17 paper-table headings in landscape A3 to keep the wide table readable. Selected columns use an **X**, with lens set and special offers in **Addons**. It includes a dated report heading, repeated table headings, page numbers, and pending-bonus warnings. Customer numbers retain leading zeros; embedded Roboto fonts support currency symbols and accented names. Long rows wrap and remain together across page breaks.
 
 The downloaded PDF can be shared or printed from a PDF viewer. Choose A3 landscape for the intended print size, or use the viewer's fit-to-page option for smaller paper. Export generation does not contact another service or upload customer data. The current records remain unchanged; both export formats are reporting snapshots, while JSON is the restorable backup.
 
@@ -154,7 +158,7 @@ npx playwright install chromium webkit
 npm run test:e2e
 ```
 
-Unit tests cover every supplied add-on rate, frames, Golden Ticket, second-pair caps, invalid combinations, rounding, data validation, storage conflicts/failures, Excel round trips, and PDF content, Unicode text, page numbering and page bounds. Browser checks exercise mobile/desktop entry, editing, removal, persistence, Excel and PDF downloads, backup restoration, key changes and stale tabs. Optional `SCREENSHOT_DIR` captures synthetic-data review screenshots; no test data ships in the app.
+Unit tests cover every supplied add-on rate, frames, Golden Ticket, second-pair caps, invalid combinations, rounding, data validation, storage conflicts/failures, Excel round trips, and PDF content, Unicode text, page numbering and page bounds. Claim tests cover record reservations, duplicate-claim rejection, frozen PDF/Excel amounts and currencies, cancellation/undo history, backup persistence and concurrent/uncertain cloud writes. Browser checks exercise mobile/desktop entry, editing, removal, persistence, Excel and PDF downloads, backup restoration, key changes, stale tabs, bulk claim selection and submission/correction flows in Chromium and WebKit. Optional `SCREENSHOT_DIR` captures synthetic-data review screenshots; no test data ships in the app.
 
 Online-saving checks also cover Postgres access policies, account binding, merge conflicts, interrupted uploads, fresh-browser recovery and mobile sign-in. Database policy tests run the actual migration in PGlite. Browser cloud tests use a mocked API; they do not contact your live database. See [online-saving documentation](docs/ONLINE-SAVING.md) for deployment and live verification.
 
@@ -164,6 +168,9 @@ Files:
 
 - `src/model.js`: supplied key, validation and pure bonus calculations.
 - `src/main.js` / `src/style.css`: interface and responsive styles.
+- `src/claims.js`: draft creation, submission/correction transitions, record reservations and frozen amounts.
+- `src/claims-schema.js`: claim history, snapshot, total and reservation validation.
+- `src/claims-ui.js`: bulk selection, claim review, downloads and submission history.
 - `src/storage.js`: versioned browser persistence and stale-write detection.
 - `src/cloud-model.js`: three-way sync, revisions, conflicts and interrupted-upload recovery.
 - `src/cloud-client.js` / `src/cloud-ui.js`: Supabase authentication, database adapter and online-save interface.
@@ -172,16 +179,16 @@ Files:
 - `src/workbook.js`: formatted paper-table workbook.
 - `src/pdf.js`: printable PDF table and pagination.
 - `src/export-table.js`: shared paper headings and record details for both formats.
-- `src/export-selection.js`: inclusive date filtering, period summaries, month shortcuts and export filenames.
+- `src/export-selection.js`: unclaimed-record filtering, saved-claim selection, period summaries, month shortcuts and export filenames.
 - `.github/workflows/deploy.yml`: checks and GitHub Pages deployment.
 
-Records may contain an optional `lensSets` object with independent `first` and `second` add-on/offer arrays. Existing single-set records remain readable and keep their original single-set calculation; editing one adds the paired format only when choices are added to the other set. Both sets are retained in backups and online documents, and listed in the Addons column of Excel/PDF exports. Existing 241 records are recalculated using only their highest-priced frame and no bonus for free second-set varifocals. Records with varifocals incorrectly marked for a second-pair flat offer are flagged Pending for review.
+Records may contain an optional `lensSets` object with independent `first` and `second` add-on/offer arrays. Existing single-set records remain readable and keep their original single-set calculation; editing one adds the paired format only when choices are added to the other set. Both sets are retained in backups and online documents, and listed in the Addons column of Excel/PDF exports. Unclaimed 241 records are recalculated using only their highest-priced frame and no bonus for free second-set varifocals. Records with varifocals incorrectly marked for a second-pair flat offer are flagged Pending for review.
 
-Storage is schema version 1 under `dispensing-record:v1`. Broken stored data is not overwritten automatically. Download the original stored text for recovery or restore a valid JSON backup. Writes fail visibly if storage is blocked, full or changed in another tab.
+Storage is schema version 1 under `dispensing-record:v1`. Optional `key.claims` holds saved claim snapshots and history in the existing private document and backup envelope; no database migration is required for claims. Broken stored data is not overwritten automatically. Download the original stored text for recovery or restore a valid JSON backup. Writes fail visibly if storage is blocked, full or changed in another tab.
 
 Phone form fields use separate full-width rows with matching 48px heights and 16px input text. Grid children and native date controls are constrained to their available width, including Safari. The focused `mobile-layout.spec.js` checks entry and export fields at 320-1280px in Chromium and WebKit, covering long customer numbers, saving and editing.
 
 
 ### Export loading recovery
 
-A page left open during a deployment may refer to an old export bundle that GitHub Pages no longer serves. Network interruptions can also stop the export tools loading. A bounded retry uses the build manifest and a fresh module URL to bypass Safari's cached failed requests. It only loads export code from the same build as the open app, to avoid mixing releases. If loading still fails, the export dialog offers **Refresh app**, with a fresh page request and preserved report preferences. It never clears local records, the bonus key or sign-in storage, and does not refresh automatically. Save or clear any unfinished dispense first; an active sync must also finish. Once refreshed, open Export and download again. In an older app version without the recovery button, use Safari's reload arrow. Do not clear website data to fix this error.
+A page left open during a deployment may refer to an old export bundle that GitHub Pages no longer serves. Network interruptions can also stop the export tools loading. A bounded retry uses the build manifest and a fresh module URL to bypass Safari's cached failed requests. It only loads export code from the same build as the open app, to avoid mixing releases. If loading still fails, the export dialog offers **Refresh app**, with a fresh page request and preserved report preferences. It never clears local records, the bonus key or sign-in storage, and does not refresh automatically. Save or clear any unfinished dispense first; an active sync must also finish. Once refreshed, reopen **Export** for an ordinary report. For a saved claim, return to **Claims**, reopen it and choose **Download claim**; the refresh returns to the Claims tab when recovering a claim download. In an older app version without the recovery button, use Safari's reload arrow. Do not clear website data to fix this error.
