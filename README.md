@@ -31,7 +31,7 @@ Use an HTTP server, not a double-clicked `index.html`. The `dist/` folder is the
 
 ### Bonus claims and previous-month receipts
 
-1. Open **Claims → Create claim**. Name the claim (for example, “October bonuses”). Select any unclaimed receipts, including September leftovers; optional dispense-date filters do not change their original dates. Pending bonuses must be resolved before selection.
+1. Open **Claims → Create claim**. Name the claim (for example, “October bonuses”). Tap **Select all** for all unclaimed receipts, or choose **Receipt month** and **Select this month**. Untick individual receipts to leave them for later. Selections can span months, including September leftovers; optional dispense-date filters do not change their original dates. Pending bonuses must be resolved before selection.
 2. **Save draft claim** freezes the selected records, currency, bonus amounts and add-on descriptions. It reserves those records so they cannot be selected again or edited/deleted while in the claim. To adjust a draft, cancel it and prepare a new one.
 3. Open the claim and choose **Download claim** for PDF or Excel. Both formats contain the same saved records and amounts, with a stable claim reference. Downloading alone never changes its status.
 4. After sending the claim, choose **Mark submitted** and confirm its count and total. Submitted records stay locked and excluded from future claims. The history records when the draft was prepared and when it was marked submitted.
