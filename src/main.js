@@ -1,4 +1,5 @@
 import './style.css';
+import { loadExporter, ExportLoadError } from './export-loader.js';
 import { GROUPS, BONUS_GROUPS, MODES, blankEntry, lensSetsOf, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
 import { loadState, saveState, STORAGE_KEY } from './storage.js';
 import { monthPeriod, selectExport, exportFilename, periodLabel } from './export-selection.js';
@@ -62,6 +63,7 @@ $('#app').innerHTML = `
     <label class="field">Section name <span class="field-hint">Optional, e.g. October bonuses</span><input id="export-name" maxlength="80" placeholder="Bonus period"></label>
     <div id="export-summary" class="export-summary" role="status" aria-live="polite"></div>
     <div id="export-error" class="inline-error" role="alert" hidden></div>
+    <button type="button" id="refresh-export" class="button secondary" hidden>Refresh app</button>
     <p class="field-hint export-hint">Both dates are included. The record-list search does not affect this export. Your saved records stay on this device.</p>
     <div class="dialog-actions"><button type="button" id="cancel-export" class="button secondary">Cancel</button><button id="download-export" class="button primary" type="submit">${icon('download')}Download Excel</button></div>
   </form></dialog>
@@ -322,27 +324,66 @@ $('#export-form').addEventListener('submit',async event=>{
     const snapshot=structuredClone(state),options=exportOptions(),selection=selectExport(snapshot,options),format=$('#export-format').value;
     const filename=exportFilename(selection,format),formatLabel=format === 'pdf' ? 'PDF' : 'Excel';
     if (!selection.entries.length) throw new Error('No records in this period. Choose different dates.');
+    showError($('#export-error'),''); $('#refresh-export').hidden=true;
     exportBusy=true;button.disabled=true;button.textContent=`Preparing ${formatLabel}…`;
     // Keep the visible selection consistent with the snapshot while the file is generated.
     for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=true;
-    let buffer;
-    if(format === 'pdf') {
-      const {exportPdf}=await import('./pdf.js');
-      buffer=await exportPdf(snapshot,options);
-    } else {
-      const {exportWorkbook}=await import('./workbook.js');
-      buffer=await exportWorkbook(snapshot,options);
-    }
+    const exporter = await loadExporter(format);
+    const buffer = await exporter(snapshot,options);
     download(new Blob([buffer],{type:format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),filename);
     $('#export-dialog').close();
     notify(`${formatLabel} file prepared: ${periodLabel(selection)} · ${selection.entries.length} records.`);
-  }catch(error){showError($('#export-error'),`Export failed: ${error.message}. Your records are still saved.`);}
+  }catch(error){
+    const loadFailed = error instanceof ExportLoadError;
+    $('#refresh-export').hidden = !loadFailed;
+    showError($('#export-error'),loadFailed
+      ? 'The export tools could not load. This can happen after an app update or a connection problem. Check your connection, then tap Refresh app and try Export again. Your saved records will stay on this device.'
+      : `Export failed: ${error.message}. Your records are still saved.`);
+  }
   finally{
     exportBusy=false;button.disabled=false;updateExportFormat();
     for (const input of $('#export-form').querySelectorAll('input,select')) input.disabled=false;
     $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
   }
 });
+const EXPORT_RECOVERY_KEY = 'dispensing-record:export-recovery';
+$('#refresh-export').addEventListener('click',()=>{
+  const draft=readEntry();
+  if (editing || draft.number || draft.name || draft.types.length || Object.values(lensSetsOf(draft)).some(set=>set.addons.length || set.offers.length)) {
+    showError($('#export-error'),'Cancel export and save or clear your unfinished dispense before refreshing. Your saved records are safe.');
+    return;
+  }
+  if (cloud?.isBusy()) {
+    showError($('#export-error'),'Online saving is still running. Wait for it to finish, then tap Refresh app again.');
+    return;
+  }
+  try {
+    // Only report preferences are carried across the refresh, never customer data.
+    const preferences=Object.fromEntries(['format','preset','start','end','name'].map(name=>[name,$(`#export-${name}`).value]));
+    sessionStorage.setItem(EXPORT_RECOVERY_KEY,JSON.stringify(preferences));
+  } catch { /* Refresh remains available when session storage is blocked. */ }
+  const url=new URL(location.href);
+  url.searchParams.set('app-refresh',Date.now().toString());
+  location.replace(url.href);
+});
+try {
+  const preferences=JSON.parse(sessionStorage.getItem(EXPORT_RECOVERY_KEY) || 'null');
+  sessionStorage.removeItem(EXPORT_RECOVERY_KEY);
+  if (preferences && typeof preferences === 'object') {
+    for (const name of ['format','preset','start','end','name']) {
+      if (typeof preferences[name] === 'string') $(`#export-${name}`).value=preferences[name];
+    }
+    if (!$('#export-format').value) $('#export-format').value='xlsx';
+    if (!$('#export-preset').value) $('#export-preset').value='month';
+    $('#export-dates').hidden=$('#export-preset').value==='all';
+    $('#export-start').disabled=$('#export-end').disabled=$('#export-preset').value==='all';
+    updateExportFormat();
+  }
+} catch { /* Saved records do not depend on these optional preferences. */ }
+if (new URL(location.href).searchParams.has('app-refresh')) {
+  const url=new URL(location.href);url.searchParams.delete('app-refresh');
+  history.replaceState(history.state,'',url.href);
+}
 function downloadBackup() { download(new Blob([JSON.stringify(documentOf(state),null,2)],{type:'application/json'}),`dispensing-backup-${localDate()}.json`); }
 $('#backup').addEventListener('click',downloadBackup);
 $('#raw-backup').addEventListener('click',()=>{
