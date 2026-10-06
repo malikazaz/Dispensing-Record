@@ -41,20 +41,28 @@ test('241 keeps both varifocals but credits one, including after reload and edit
   await expect(page.locator('#count')).toHaveText('1'); await expect(page.locator('#total')).toHaveText('€7.00');
 });
 
-test('Supereader earns two euro for the second set under 241 and retains it after saving', async ({ page }) => {
+test('free Supereader earns included UCSC or index upgrade without stacking and survives saving', async ({ page }) => {
   await page.goto('/');
   const select = value => page.locator('label').filter({has:page.locator(`input[value="${value}"]`)}).click();
   await page.getByLabel('Customer number', { exact: true }).fill('001');
   await page.getByLabel('Customer name', { exact: true }).fill('Supereader example');
   for(const value of ['Vari','241','Supereader','1.74','second','Supereader']) await select(value);
   await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.00');
-  await expect(page.locator('#bonus-preview .breakdown')).toContainText('2nd set · Supereader €2.00');
-  await expect(page.locator('#bonus-preview .breakdown')).not.toContainText('free under 241');
+  await expect(page.locator('#bonus-preview .breakdown')).toContainText('2nd set · UCSC (included with Supereader) €2.00');
+  await expect(page.locator('#bonus-preview .breakdown')).toContainText('Supereader (free under 241) €0.00');
+  await select('UCSC');await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.00');
+  for(const [index,total] of [['1.6','€10.50'],['1.67','€11.00'],['1.74','€12.00']]) {
+    await select(index);await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText(total);
+    await expect(page.locator('#bonus-preview .breakdown')).not.toContainText('UCSC');
+    await select(index);
+  }
+  await select('1.6');
   await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
-  await page.reload(); await expect(page.locator('#total')).toHaveText('€9.00');
+  await page.reload(); await expect(page.locator('#total')).toHaveText('€10.50');
   await showRecords(page); await page.getByRole('button', { name: 'Edit Supereader example', exact: true }).click();
   await expect(page.locator('input[value="Supereader"]')).toBeChecked();
-  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.00');
+  await expect(page.locator('input[value="1.6"]')).toBeChecked();
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€10.50');
 });
 
 test('switching lens sets keeps independent choices and saves both in one record', async ({ page }) => {

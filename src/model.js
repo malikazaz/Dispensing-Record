@@ -35,7 +35,13 @@ export function lensSetsOf(entry) {
   return sets;
 }
 export function isFreeVarifocal(entry, addon) {
-  return entry.set === 'second' && entry.types.includes('241') && ['Elite','Tailormade'].includes(addon);
+  return entry.set === 'second' && entry.types.includes('241') && ['Elite','Tailormade','Supereader'].includes(addon);
+}
+export function freeSupereader(entry) {
+  return entry.addons.includes('Supereader') && isFreeVarifocal(entry,'Supereader');
+}
+export function supereaderIndexUpgrade(entry) {
+  return freeSupereader(entry) && entry.addons.some(addon=>['1.6','1.67','1.74'].includes(addon));
 }
 export function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -95,7 +101,13 @@ export function calculate(entry, key) {
 }
 function calculateSet(entry, key, skipTypes=false) {
   const issues = [];
-  const bonusAddons = entry.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon));
+  let bonusAddons = entry.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon));
+  if (freeSupereader(entry)) {
+    // The free design has an included coating, not a separate design bonus.
+    // An index upgrade replaces that coating bonus, even if UCSC was ticked.
+    if (supereaderIndexUpgrade(entry)) bonusAddons=bonusAddons.filter(addon=>addon!=='UCSC');
+    else if (!bonusAddons.includes('UCSC')) bonusAddons.push('UCSC');
+  }
   const paidAddons = bonusAddons.filter(addon => !isFreeVarifocal(entry,addon));
   if (!entry.types.length) issues.push('Choose a dispense type.');
   if (!key.confirmed) issues.push('Check and confirm the bonus key.');
@@ -120,7 +132,7 @@ function calculateSet(entry, key, skipTypes=false) {
   const frames = entry.types.filter(label => ['70','95','130','160','190','240'].includes(label));
   const paidFrame = entry.types.includes('241') && frames.length ? String(Math.max(...frames.map(Number))) : null;
   for (const group of ['types','addons','offers']) {
-    for (const label of group === 'offers' ? effectiveOffers : entry[group]) {
+    for (const label of group === 'offers' ? effectiveOffers : group === 'addons' ? bonusAddons : entry[group]) {
       if (skipTypes && group === 'types') continue;
       if (group === 'addons' && RECORD_ONLY_ADDONS.includes(label)) continue;
       if (group === 'types' && paidFrame && frames.includes(label) && label !== paidFrame) continue;
@@ -133,7 +145,8 @@ function calculateSet(entry, key, skipTypes=false) {
       if (skipped) continue;
       if (rate[entry.set] === null) issues.push(`${label}: ${entry.set === 'first' ? '1st' : '2nd'}-set rate missing.`);
       if (!rate.mode) issues.push(`${label}: choose how the offer applies.`);
-      if (rate[entry.set] !== null && rate.mode) parts.push({ label, cents: rate[entry.set] * (['perAddonReplace','perAddonAdd'].includes(rate.mode) ? paidAddons.length : 1) });
+      const partLabel=group==='addons' && label==='UCSC' && freeSupereader(entry) ? 'UCSC (included with Supereader)' : label;
+      if (rate[entry.set] !== null && rate.mode) parts.push({ label:partLabel, cents: rate[entry.set] * (['perAddonReplace','perAddonAdd'].includes(rate.mode) ? paidAddons.length : 1) });
     }
   }
   const subtotal = parts.reduce((sum,p) => sum+p.cents,0);

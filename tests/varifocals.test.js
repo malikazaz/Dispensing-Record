@@ -65,29 +65,57 @@ test('Excel and PDF retain both Tailormades and explain the free second set',asy
 });
 
 
-test('Supereader earns its second-set rate with or without 241, including legacy records',()=>{
+test('free second-set Supereader pays included UCSC once, or only the chosen index rate',()=>{
   const key=defaultKey();
-  for(const types of [['Vari'],['Vari','241']]) {
-    const entry={...record('Supereader'),types};
-    assert.equal(calculate(entry,key).cents,400);
-    assert.equal(calculate(entry,key).parts.some(part=>part.free),false);
-    entry.lensSets.first.addons.push('1.74');
-    assert.equal(calculate(entry,key).cents,900);
-    const legacy={...blankEntry(),types,set:'second',addons:['Supereader']};
-    assert.equal(calculate(legacy,key).cents,200);
-    const custom=structuredClone(key);custom.rates['addons:Supereader'].second=350;
-    assert.equal(calculate(legacy,custom).cents,350);
+  for(const [index,cents] of [[null,200],['1.6',350],['1.67',400],['1.74',500]]) {
+    for(const explicitUcsc of [false,true]) {
+      const addons=['Supereader',...(index?[index]:[]),...(explicitUcsc?['UCSC']:[])];
+      const legacy={...blankEntry(),types:['Vari','241'],set:'second',addons};
+      const before=structuredClone(legacy),result=calculate(legacy,key);
+      assert.equal(result.cents,cents);
+      assert.deepEqual(result.parts.find(part=>part.free),{label:'Supereader',cents:0,free:true});
+      assert.equal(result.parts.some(part=>part.label.startsWith('UCSC')),!index);
+      assert.deepEqual(legacy,before);
+      const paired=record('Supereader');paired.lensSets.second.addons=addons;
+      assert.equal(calculate(paired,key).cents,200+cents);
+      paired.lensSets.first.addons.push('1.74');paired.types.push('160','190');
+      assert.equal(calculate(paired,key).cents,1000+cents); // First set 7 + highest frame 3.
+      legacy.offers=['Golden Ticket'];
+      assert.equal(calculate(legacy,key).cents,cents+100); // One paid coating or index, not the free design.
+    }
   }
 });
 
-test('Excel and PDF credit both Supereaders under 241 without a free annotation',async()=>{
-  const state=initialState();state.entries=[record('Supereader')];
+test('free Supereader follows the coating/index key and ignores its free design rate',()=>{
+  const entry={...blankEntry(),types:['Vari','241'],set:'second',addons:['Supereader']};
+  const key=defaultKey();key.rates['addons:Supereader'].second=null;
+  key.rates['addons:UCSC'].second=275;assert.equal(calculate(entry,key).cents,275);
+  key.rates['addons:UCSC'].second=null;assert.equal(calculate(entry,key).cents,null);
+  entry.addons.push('1.6');key.rates['addons:1.6'].second=450;
+  assert.equal(calculate(entry,key).cents,450);
+  key.rates['addons:1.6'].second=null;assert.equal(calculate(entry,key).cents,null);
+});
+
+test('paid Supereader outside the free second-set 241 offer keeps its own rate',()=>{
+  const key=defaultKey();key.rates['addons:Supereader'].second=325;
+  const entry={...blankEntry(),types:['Vari'],set:'second',addons:['Supereader','1.6']};
+  assert.equal(calculate(entry,key).cents,675);
+  entry.set='first';entry.types.push('241');assert.equal(calculate(entry,key).cents,500);
+});
+
+test('Excel and PDF record free Supereader with included UCSC or the paid index',async()=>{
+  const state=initialState();
+  const coated=record('Supereader');
+  const upgraded={...record('Supereader'),id:'upgraded'};upgraded.lensSets.second.addons.push('UCSC','1.6');
+  state.entries=[coated,upgraded];
   const book=new ExcelJS.Workbook();await book.xlsx.load(await exportWorkbook(state));
   const sheet=book.getWorksheet('Dispensing Record');
-  assert.equal(sheet.getCell('Q5').value,4);
-  assert.match(sheet.getCell('P5').value,/2nd set of lenses: Supereader/);
-  assert.doesNotMatch(sheet.getCell('P5').value,/free under 241/);
+  assert.equal(sheet.getCell('Q5').value,4);assert.equal(sheet.getCell('Q6').value,5.5);
+  assert.match(sheet.getCell('P5').value,/Supereader \(free under 241; includes UCSC\)/);
+  assert.match(sheet.getCell('P6').value,/UCSC \(included in index upgrade\)/);
+  assert.match(sheet.getCell('P6').value,/1.6/);
   const pages=await readPdf(await exportPdf(state));
-  assert.match(pages[0].text,/TOTAL BONUS\s+€4.00/);
-  assert.doesNotMatch(pages[0].text,/Supereader \(free under 241\)/);
+  assert.match(pages[0].text,/TOTAL BONUS\s+€9.50/);
+  assert.match(pages[0].text,/Supereader \(free under 241; includes UCSC\)/);
+  assert.match(pages[0].text,/UCSC \(included in index upgrade\)/);
 });
