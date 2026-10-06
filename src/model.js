@@ -35,7 +35,7 @@ export function lensSetsOf(entry) {
   return sets;
 }
 export function isFreeVarifocal(entry, addon) {
-  return entry.set === 'second' && entry.types.includes('241') && ['Elite','Tailormade','Supereader'].includes(addon);
+  return entry.set === 'second' && entry.types.includes('241') && ['Elite','Tailormade'].includes(addon);
 }
 export function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

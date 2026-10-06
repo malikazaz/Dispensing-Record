@@ -8,8 +8,8 @@ import { readPdf } from './helpers/read-pdf.js';
 
 const record = addon => ({...blankEntry(),id:'varifocal',number:'001',name:'Example',types:['Vari','241'],lensSets:{first:{addons:[addon],offers:[]},second:{addons:[addon],offers:[]}}});
 
-test('241 records each varifocal twice but awards only its first-set bonus',()=>{
-  for(const [addon,cents] of [['Elite',200],['Tailormade',250],['Supereader',200]]) {
+test('241 records Elite and Tailormade twice but awards only their first-set bonus',()=>{
+  for(const [addon,cents] of [['Elite',200],['Tailormade',250]]) {
     const entry=record(addon), before=structuredClone(entry), result=calculate(entry,defaultKey());
     assert.equal(result.cents,cents);
     assert.deepEqual(result.parts.find(part=>part.free),{label:`2nd set · ${addon}`,cents:0,free:true});
@@ -19,7 +19,7 @@ test('241 records each varifocal twice but awards only its first-set bonus',()=>
 });
 
 test('index add-ons retain their rates alongside the free second-set varifocal',()=>{
-  const entry=record('Supereader');entry.lensSets.first.addons.push('1.74');
+  const entry=record('Elite');entry.lensSets.first.addons.push('1.74');
   assert.equal(calculate(entry,defaultKey()).cents,700);
   entry.lensSets.second.addons.push('1.74');assert.equal(calculate(entry,defaultKey()).cents,1200);
   entry.types.push('160','190');assert.equal(calculate(entry,defaultKey()).cents,1500);
@@ -62,4 +62,32 @@ test('Excel and PDF retain both Tailormades and explain the free second set',asy
   const pages=await readPdf(await exportPdf(state));
   assert.match(pages[0].text,/2nd set of lenses: Tailormade \(free under 241\)/);
   assert.match(pages[0].text,/TOTAL BONUS\s+€2.50/);
+});
+
+
+test('Supereader earns its second-set rate with or without 241, including legacy records',()=>{
+  const key=defaultKey();
+  for(const types of [['Vari'],['Vari','241']]) {
+    const entry={...record('Supereader'),types};
+    assert.equal(calculate(entry,key).cents,400);
+    assert.equal(calculate(entry,key).parts.some(part=>part.free),false);
+    entry.lensSets.first.addons.push('1.74');
+    assert.equal(calculate(entry,key).cents,900);
+    const legacy={...blankEntry(),types,set:'second',addons:['Supereader']};
+    assert.equal(calculate(legacy,key).cents,200);
+    const custom=structuredClone(key);custom.rates['addons:Supereader'].second=350;
+    assert.equal(calculate(legacy,custom).cents,350);
+  }
+});
+
+test('Excel and PDF credit both Supereaders under 241 without a free annotation',async()=>{
+  const state=initialState();state.entries=[record('Supereader')];
+  const book=new ExcelJS.Workbook();await book.xlsx.load(await exportWorkbook(state));
+  const sheet=book.getWorksheet('Dispensing Record');
+  assert.equal(sheet.getCell('Q5').value,4);
+  assert.match(sheet.getCell('P5').value,/2nd set of lenses: Supereader/);
+  assert.doesNotMatch(sheet.getCell('P5').value,/free under 241/);
+  const pages=await readPdf(await exportPdf(state));
+  assert.match(pages[0].text,/TOTAL BONUS\s+€4.00/);
+  assert.doesNotMatch(pages[0].text,/Supereader \(free under 241\)/);
 });
