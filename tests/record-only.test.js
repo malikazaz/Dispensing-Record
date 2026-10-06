@@ -34,3 +34,24 @@ test('both record-only selections export to Excel and PDF without changing the b
   const pages=await readPdf(await exportPdf(state));assert.equal(pages[0].text.match(/Super Boost/g).length,2);
   assert.match(pages[0].text,/TOTAL BONUS\s+€1.50/);
 });
+
+
+test('Miyosmart is zero in every pair with old keys, without triggering flat offers',()=>{
+  const key=defaultKey();assert.equal(key.rates['addons:Miyosmart'],undefined);
+  for(const set of ['first','second']) {
+    const entry={...blankEntry(),id:'miyo',number:'001',name:'Example',types:['SV'],set,addons:['Miyosmart'],thirdPair:{enabled:true,addons:['Miyosmart']}};
+    assert.equal(calculate(entry,key).cents,0);
+    assert.equal(validateState({...initialState(),entries:[entry]}).entries.length,1);
+    key.thirdPairRate=900;assert.equal(calculate(entry,key).cents,0);
+    if (set==='second') {entry.offers=['2nd pair SV'];assert.equal(calculate(entry,key).cents,300);}
+  }
+});
+
+test('Miyosmart remains in Excel and PDF for every pair with a zero total',async()=>{
+  const state=initialState();state.entries=[{...blankEntry(),id:'miyo',number:'001',name:'Example',types:['SV'],lensSets:{first:{addons:['Miyosmart'],offers:[]},second:{addons:['Miyosmart'],offers:[]}},thirdPair:{enabled:true,addons:['Miyosmart']}}];
+  const book=new ExcelJS.Workbook();await book.xlsx.load(await exportWorkbook(state));
+  const sheet=book.getWorksheet('Dispensing Record');assert.equal(sheet.getCell('Q5').value,0);
+  assert.equal(sheet.getCell('P5').value.match(/Miyosmart/g).length,3);
+  const pages=await readPdf(await exportPdf(state));assert.equal(pages[0].text.match(/Miyosmart/g).length,3);
+  assert.match(pages[0].text,/TOTAL BONUS\s+€0.00/);
+});

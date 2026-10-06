@@ -1,9 +1,10 @@
 export const GROUPS = {
   types: ['SV', 'BIF', 'Vari', '241', 'Other', 'RE', '70', '95', '130', '160', '190', '240'],
-  addons: ['UCSC', '1.6', '1.67', '1.74', 'Polaroid', 'Polaroid 1.6', 'Polaroid 1.67', 'Reaction', 'Reaction 1.67', 'Tint', 'Elite', 'Tailormade', 'Supereader', 'Super Boost'],
+  addons: ['UCSC', '1.6', '1.67', '1.74', 'Polaroid', 'Polaroid 1.6', 'Polaroid 1.67', 'Reaction', 'Reaction 1.67', 'Tint', 'Elite', 'Tailormade', 'Supereader', 'Super Boost', 'Miyosmart'],
   offers: ['2nd pair SV', '2nd-pair add-ons', '3rd pair half-price combined with 2-4-1', 'Golden Ticket'],
 };
-export const RECORD_ONLY_ADDONS = ['Super Boost'];
+export const ZERO_BONUS_ADDONS = ['Miyosmart'];
+export const RECORD_ONLY_ADDONS = ['Super Boost', ...ZERO_BONUS_ADDONS];
 export const BONUS_GROUPS = { ...GROUPS, addons: GROUPS.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon)) };
 export const THIRD_PAIR_OFFERS = ['Golden Ticket','3rd pair half-price combined with 2-4-1'];
 export const ACTIVE_BONUS_GROUPS = {...BONUS_GROUPS,offers:BONUS_GROUPS.offers.filter(offer=>!THIRD_PAIR_OFFERS.includes(offer))};
@@ -98,7 +99,7 @@ export function calculate(entry,key) {
   const result=calculateBase(clean,key);
   if (legacy) result.issues.push('Review this older Golden Ticket / third-pair offer: select its add-ons in the separate third-pair section.');
   if (entry.thirdPair?.enabled) {
-    const addons=entry.thirdPair.addons;
+    const addons=entry.thirdPair.addons.filter(addon=>!ZERO_BONUS_ADDONS.includes(addon));
     if (!entry.thirdPair.addons.length) result.issues.push('Select the third-pair add-ons, or untick the third-pair offer.');
     const rate=thirdPairRate(key);
     if (addons.length && rate===null) result.issues.push('Third-pair add-on rate missing.');

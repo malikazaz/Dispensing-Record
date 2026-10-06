@@ -10,12 +10,12 @@ import { readPdf } from './helpers/read-pdf.js';
 
 const record=()=>({...blankEntry(),id:'third',date:'2026-10-06',number:'001',name:'Example customer',types:['241','160','190'],lensSets:{first:{addons:['UCSC'],offers:[]},second:{addons:['UCSC'],offers:[]}},thirdPair:{enabled:true,addons:['Tailormade','1.74','Polaroid 1.6']}});
 
-test('each third-pair choice earns one euro, including Super Boost',()=>{
+test('third-pair choices earn one euro including Super Boost, while Miyosmart earns zero',()=>{
   for (const addon of GROUPS.addons) {
     const entry=record();entry.thirdPair.addons=[addon];
     const result=calculate(entry,defaultKey());
-    assert.equal(result.cents,750);
-    assert.equal(result.parts.filter(part=>part.label.startsWith('3rd pair')).length,1);
+    assert.equal(result.cents,addon==='Miyosmart'?650:750);
+    assert.equal(result.parts.filter(part=>part.label.startsWith('3rd pair')).length,addon==='Miyosmart'?0:1);
   }
   const entry=record(),before=structuredClone(entry);assert.equal(calculate(entry,defaultKey()).cents,950);
   assert.deepEqual(entry,before);

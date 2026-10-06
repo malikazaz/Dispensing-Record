@@ -6,8 +6,8 @@ const entry=(data={})=>({...blankEntry(),id:'test-record',date:'2026-10-05',numb
 
 test('Polaroid plus Elite earns 5 euros for a first set',()=>assert.equal(calculate(entry({addons:['Polaroid','Elite']}),key).cents,500));
 test('all supplied first and second set add-on rates',()=>{
-  const first=[150,300,400,500,300,400,500,200,500,100,200,250,200,0];
-  const second=[200,350,400,500,300,400,500,200,500,100,200,250,200,0];
+  const first=[150,300,400,500,300,400,500,200,500,100,200,250,200,0,0];
+  const second=[200,350,400,500,300,400,500,200,500,100,200,250,200,0,0];
   GROUPS.addons.forEach((addon,i)=>{
     assert.equal(calculate(entry({addons:[addon]}),key).cents,first[i],addon);
     assert.equal(calculate(entry({addons:[addon],set:'second'}),key).cents,second[i],`${addon} 2nd`);

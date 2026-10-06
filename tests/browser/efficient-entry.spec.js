@@ -5,7 +5,7 @@ test('Super Boost follows Supereader, survives saving, and leaves the bonus key 
   await page.goto('/');
   const select = value => page.locator('label').filter({has:page.locator(`input:not([name="thirdAddons"])[value="${value}"]`)}).click();
   expect(await page.locator('input[name="addons"]').evaluateAll(inputs=>inputs.map(input=>input.value))).toEqual(expect.arrayContaining(['Supereader','Super Boost']));
-  await expect(page.locator('input[name="addons"]').last()).toHaveValue('Super Boost');
+  await expect(page.locator('input[name="addons"]').last()).toHaveValue('Miyosmart');
   await page.getByLabel('Customer number', { exact: true }).fill('001');
   await page.getByLabel('Customer name', { exact: true }).fill('Record only');
   for(const value of ['SV','Super Boost','second','Super Boost']) await select(value);
