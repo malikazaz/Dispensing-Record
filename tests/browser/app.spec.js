@@ -117,7 +117,7 @@ test('custom period exports only inclusive dates as its own named section with a
   expect(sheet.getCell('A1').value).toBe('October bonuses');expect(sheet.getCell('A3').value).toContain('01/10/2026 – 31/10/2026');
   expect([5,6,7,8].map(row=>sheet.getCell(`B${row}`).value)).toEqual(['0001','0005','0002','0003']);
   expect(sheet.getCell('Q9').value).toEqual({formula:'SUM(Q5:Q8)',result:6});
-  expect(book.worksheets).toHaveLength(2);await expect(page.locator('#count')).toHaveText('6');
+  expect(book.worksheets).toHaveLength(1);await expect(page.locator('#count')).toHaveText('6');
   await expect(page.locator('#total')).toHaveText('€10.00');
 });
 
