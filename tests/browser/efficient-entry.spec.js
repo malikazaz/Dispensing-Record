@@ -1,6 +1,27 @@
 import { test, expect } from '@playwright/test';
 import { openAccount, showRecords } from './ui-helpers.js';
 
+test('Super Boost follows Supereader, survives saving, and leaves the bonus key usable', async ({ page }) => {
+  await page.goto('/');
+  const select = value => page.locator('label').filter({has:page.locator(`input[value="${value}"]`)}).click();
+  expect(await page.locator('input[name="addons"]').evaluateAll(inputs=>inputs.map(input=>input.value))).toEqual(expect.arrayContaining(['Supereader','Super Boost']));
+  await expect(page.locator('input[name="addons"]').last()).toHaveValue('Super Boost');
+  await page.getByLabel('Customer number', { exact: true }).fill('001');
+  await page.getByLabel('Customer name', { exact: true }).fill('Record only');
+  for(const value of ['SV','Super Boost','second','Super Boost']) await select(value);
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€0.00');
+  await page.getByRole('button', { name: 'Save dispense', exact: true }).click();
+  await page.reload(); await expect(page.locator('#count')).toHaveText('1');
+  await expect(page.locator('#total')).toHaveText('€0.00');
+  await showRecords(page); await expect(page.locator('#records')).toContainText('Super Boost');
+  await page.getByRole('button', { name: 'Edit Record only', exact: true }).click();
+  await expect(page.locator('input[value="Super Boost"]')).toBeChecked();
+  await select('first'); await expect(page.locator('input[value="Super Boost"]')).toBeChecked();
+  await openAccount(page); await page.getByRole('button',{name:'Bonus key',exact:true}).click();
+  page.once('dialog',dialog=>dialog.accept()); await page.getByRole('button',{name:'Save bonus key',exact:true}).click();
+  await expect(page.locator('#key-dialog')).toBeHidden(); await expect(page.locator('#total')).toHaveText('€0.00');
+});
+
 test('241 keeps both varifocals but credits one, including after reload and editing', async ({ page }) => {
   await page.goto('/');
   const select = value => page.locator('label').filter({has:page.locator(`input[value="${value}"]`)}).click();

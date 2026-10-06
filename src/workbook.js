@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { GROUPS, MODES, calculate, money, ruleId } from './model.js';
+import { GROUPS, BONUS_GROUPS, MODES, calculate, money, ruleId } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
 import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
@@ -64,7 +64,7 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
   key.mergeCells('A2:E2');key.getCell('A2').value=`Currency: ${state.key.currency}. Key ${state.key.confirmed?'confirmed':'not confirmed'}. Rates and offer rules at the time of export.`;key.getRow(2).height=23;
   key.getRow(4).values=['Category','Item','1st set','2nd set','Calculation'];header(key.getRow(4));
   let r=5;
-  for(const [group,labels]of Object.entries(GROUPS))for(const label of labels){
+  for(const [group,labels]of Object.entries(BONUS_GROUPS))for(const label of labels){
     const rate=state.key.rates[ruleId(group,label)],row=key.getRow(r++);
     row.values=[{types:'Paper column',addons:'Add-on',offers:'Special offer'}[group],label,rate.first===null?'Unknown':rate.first/100,rate.second===null?'Unknown':rate.second/100,MODES[rate.mode]||'Needs confirmation'];
     row.eachCell(bodyCell);row.getCell(3).numFmt=currencyFormat;row.getCell(4).numFmt=currencyFormat;row.height=label.length>35?36:24;

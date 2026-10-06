@@ -61,6 +61,8 @@ The user supplied the full key and exact table headings directly on 5 October 20
 | Tailormade | €2.50 | €2.50 |
 | Supereader | €2.00 | €2.00 |
 
+**Super Boost** appears immediately after Supereader as a record-only option. It is saved and included in Excel/PDF exports for either set, but earns no bonus, does not count for Golden Ticket and does not trigger the €5 second-pair offer. It has no editable bonus rate; existing bonus keys remain compatible.
+
 Elite, Tailormade and Supereader (Superreader) normally use the listed rate in either set. **Under 241, these varifocals earn no bonus in the second set**, because they are free. Keep them selected in both sets to record both supplied lenses; the preview and exports mark the second as “free under 241”. Other second-set add-ons retain their normal rates. For example, first-set Supereader + 1.74 and second-set Supereader earns €7 before frames (€2 + €5 + €0). Ticking **160** adds €1.50; **190** and **240** add €3 each. Other paper columns are zero-bonus markers because the supplied key lists no separate payment for them. With **241** selected, tick both frame prices on the same record: only the highest-priced frame earns a frame bonus. For example, 160 + 190 under 241 earns €3 for the frames, not €4.50. Lens add-on bonuses are calculated separately. Without 241, each tick is counted once. Combined options such as Polaroid 1.6 have their own rate: do not also tick their constituent options for the same lens.
 
 | Offer | Behaviour |

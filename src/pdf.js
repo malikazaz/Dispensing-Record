@@ -1,6 +1,6 @@
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import pdfFonts from 'pdfmake/build/vfs_fonts.js';
-import { GROUPS, MODES, calculate, money, ruleId } from './model.js';
+import { GROUPS, BONUS_GROUPS, MODES, calculate, money, ruleId } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
 import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
@@ -40,7 +40,7 @@ export function pdfDefinition(state, options = {mode:'all'}) {
     {text:money(selection.total.cents,state.key.currency),alignment:'right',bold:true,fillColor:'#eaf1e6',color:GREEN},
   ]);
   const keyBody = [['Category','Item','1st set','2nd set','Calculation'].map(headerCell)];
-  for (const [group,labels] of Object.entries(GROUPS)) for (const label of labels) {
+  for (const [group,labels] of Object.entries(BONUS_GROUPS)) for (const label of labels) {
     const rate = state.key.rates[ruleId(group,label)];
     keyBody.push([
       {types:'Paper column',addons:'Add-on',offers:'Special offer'}[group],label,

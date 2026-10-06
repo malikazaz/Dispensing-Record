@@ -1,8 +1,10 @@
 export const GROUPS = {
   types: ['SV', 'BIF', 'Vari', '241', 'Other', 'RE', '70', '95', '130', '160', '190', '240'],
-  addons: ['UCSC', '1.6', '1.67', '1.74', 'Polaroid', 'Polaroid 1.6', 'Polaroid 1.67', 'Reaction', 'Reaction 1.67', 'Tint', 'Elite', 'Tailormade', 'Supereader'],
+  addons: ['UCSC', '1.6', '1.67', '1.74', 'Polaroid', 'Polaroid 1.6', 'Polaroid 1.67', 'Reaction', 'Reaction 1.67', 'Tint', 'Elite', 'Tailormade', 'Supereader', 'Super Boost'],
   offers: ['2nd pair SV', '2nd-pair add-ons', '3rd pair half-price combined with 2-4-1', 'Golden Ticket'],
 };
+export const RECORD_ONLY_ADDONS = ['Super Boost'];
+export const BONUS_GROUPS = { ...GROUPS, addons: GROUPS.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon)) };
 export const MODES = { add: 'Add to bonus', replaceAddons: 'Replace add-ons (once)', perAddonReplace: 'Replace add-ons (per add-on)', perAddonAdd: 'Add extra (per add-on)', replaceTotal: 'Replace whole bonus' };
 export const SOURCE = 'Bonus key and paper-table headings supplied directly by the user on 5 October 2026. Golden Ticket adds €1 per add-on to the normal bonus (latest correction). Under the second-pair offer, any add-ons replace the base and add-on bonuses with €5 total. Basic second-pair SV uses €3 from the full key; the later message expressed uncertainty between €3 and €2. Single-column and frame rates apply to both sets. Unpriced paper columns carry no additional bonus.';
 export const ruleId = (group, label) => `${group}:${label}`;
@@ -11,7 +13,7 @@ export function defaultKey() {
   const offers = { '2nd pair SV': [300,'replaceTotal'], '2nd-pair add-ons': [500,'replaceTotal'], '3rd pair half-price combined with 2-4-1': [200,'add'], 'Golden Ticket': [100,'perAddonAdd'] };
   return {
     currency: 'EUR', confirmed: true, source: SOURCE,
-    rates: Object.fromEntries(Object.entries(GROUPS).flatMap(([group, labels]) => labels.map(label => {
+    rates: Object.fromEntries(Object.entries(BONUS_GROUPS).flatMap(([group, labels]) => labels.map(label => {
       const id = ruleId(group, label);
       const values = group === 'addons' ? addonRates[labels.indexOf(label)] : group === 'types' ? [label === '160' ? 150 : ['190','240'].includes(label) ? 300 : 0] : [offers[label][0]];
       return [id, { first: values[0], second: values[1] ?? values[0], mode: group === 'offers' ? offers[label][1] : 'add' }];
@@ -61,7 +63,7 @@ export function validateState(state) {
   if (!state || state.version !== 1 || typeof state.revision !== 'string' || !Array.isArray(state.entries) || state.entries.length > 10000) throw new Error('This is not a supported dispensing-record backup.');
   const key = state.key;
   if (!key || !['EUR','GBP'].includes(key.currency) || typeof key.confirmed !== 'boolean' || typeof key.source !== 'string' || key.source.length > 4000 || !key.rates) throw new Error('Invalid bonus key.');
-  for (const [group, labels] of Object.entries(GROUPS)) for (const label of labels) {
+  for (const [group, labels] of Object.entries(BONUS_GROUPS)) for (const label of labels) {
     const rate = key.rates[ruleId(group, label)];
     if (!rate || ![rate.first,rate.second].every(v => v === null || (Number.isSafeInteger(v) && v >= 0 && v <= 1000000))) throw new Error(`Invalid rate for ${label}.`);
     if (group === 'offers' ? ![null,...Object.keys(MODES)].includes(rate.mode) : rate.mode !== 'add') throw new Error(`Invalid rule for ${label}.`);
@@ -93,7 +95,8 @@ export function calculate(entry, key) {
 }
 function calculateSet(entry, key, skipTypes=false) {
   const issues = [];
-  const paidAddons = entry.addons.filter(addon => !isFreeVarifocal(entry,addon));
+  const bonusAddons = entry.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon));
+  const paidAddons = bonusAddons.filter(addon => !isFreeVarifocal(entry,addon));
   if (!entry.types.length) issues.push('Choose a dispense type.');
   if (!key.confirmed) issues.push('Check and confirm the bonus key.');
   // The second-pair SV offer becomes the single flat offer whenever add-ons are present.
@@ -111,7 +114,7 @@ function calculateSet(entry, key, skipTypes=false) {
   if (entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x)) && (!entry.types.includes('SV') || entry.addons.some(addon => ['Elite','Tailormade','Supereader'].includes(addon)))) issues.push('Second-pair offers apply only to single vision, not varifocals.');
   if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && !entry.types.includes('241')) issues.push('The 3rd-pair offer requires the 241 column.');
   if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x))) issues.push('Second-pair and third-pair offers belong on separate records.');
-  if (entry.offers.some(x => ['2nd-pair add-ons','Golden Ticket'].includes(x)) && !entry.addons.length) issues.push('This offer requires at least one add-on.');
+  if (entry.offers.some(x => ['2nd-pair add-ons','Golden Ticket'].includes(x)) && !bonusAddons.length) issues.push('This offer requires at least one bonus-eligible add-on.');
   const parts = [];
   // 241 pays for the most expensive frame, irrespective of its bonus rate.
   const frames = entry.types.filter(label => ['70','95','130','160','190','240'].includes(label));
@@ -119,6 +122,7 @@ function calculateSet(entry, key, skipTypes=false) {
   for (const group of ['types','addons','offers']) {
     for (const label of group === 'offers' ? effectiveOffers : entry[group]) {
       if (skipTypes && group === 'types') continue;
+      if (group === 'addons' && RECORD_ONLY_ADDONS.includes(label)) continue;
       if (group === 'types' && paidFrame && frames.includes(label) && label !== paidFrame) continue;
       if (group === 'addons' && isFreeVarifocal(entry,label)) {
         parts.push({label, cents:0, free:true});
