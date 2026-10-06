@@ -37,7 +37,7 @@ test('flat offers require SV and reject all three second-set varifocals',()=>{
 
 test('third-pair varifocals earn only the third-pair rate independently of free second-set lenses',()=>{
   const entry=record('Tailormade');entry.thirdPair={enabled:true,addons:['Tailormade','1.74']};
-  assert.equal(calculate(entry,defaultKey()).cents,450);
+  assert.equal(calculate(entry,defaultKey()).cents,650);
 });
 
 test('free second-set varifocals ignore custom or missing rates, including legacy records',()=>{
@@ -78,7 +78,7 @@ test('free second-set Supereader pays included UCSC once, or only the chosen ind
       paired.lensSets.first.addons.push('1.74');paired.types.push('160','190');
       assert.equal(calculate(paired,key).cents,1000+cents); // First set 7 + highest frame 3.
       legacy.thirdPair={enabled:true,addons:['Tint']};
-      assert.equal(calculate(legacy,key).cents,cents+100); // Independent third-pair selection.
+      assert.equal(calculate(legacy,key).cents,cents+300); // Independent third-pair selection.
     }
   }
 });

@@ -13,9 +13,10 @@ test('one third-pair offer opens independent add-ons, survives editing, and clea
   await expect(page.locator('#third-pair-addons')).toBeHidden();
   await page.getByLabel('Golden Ticket / Third pair half price',{exact:true}).check();
   await expect(page.locator('#third-pair-addons')).toBeVisible();
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€8.50');
   await expect(page.locator('input[name="thirdAddons"]:checked')).toHaveCount(0);
   for(const value of ['Tailormade','1.74','Super Boost']) await page.locator(`input[name="thirdAddons"][value="${value}"]`).check();
-  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.50');
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€11.50');
   await expect(page.locator('#bonus-preview .breakdown')).toContainText('3rd pair · Super Boost €1.00');
   await select('first');
   await expect(page.locator('input[name="addons"][value="UCSC"]')).toBeChecked();
@@ -28,14 +29,14 @@ test('one third-pair offer opens independent add-ons, survives editing, and clea
   await page.getByRole('button',{name:'Save dispense',exact:true}).click();
   await expect(page.locator('#third-pair-enabled')).not.toBeChecked();
   await expect(page.locator('input[name="thirdAddons"]:checked')).toHaveCount(0);
-  await page.reload();await expect(page.locator('#total')).toHaveText('€9.50');
+  await page.reload();await expect(page.locator('#total')).toHaveText('€11.50');
   await showRecords(page);await expect(page.locator('#records')).toContainText('3rd pair: 1.74 + Tailormade + Super Boost');
   await page.getByRole('button',{name:'Edit Three pairs',exact:true}).click();
   await expect(page.locator('#third-pair-enabled')).toBeChecked();
   await expect(page.locator('input[name="thirdAddons"]:checked')).toHaveCount(3);
   await page.locator('input[name="thirdAddons"][value="1.74"]').uncheck();
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
-  await expect(page.locator('#total')).toHaveText('€8.50');
+  await expect(page.locator('#total')).toHaveText('€10.50');
   await page.locator('.offers summary').click();await page.locator('#third-pair-enabled').check();
   await page.locator('input[name="thirdAddons"][value="Tint"]').check();
   await page.getByRole('button',{name:'Clear form',exact:true}).click();
@@ -54,6 +55,6 @@ test('older third-pair offers need explicit add-on review without copying first-
   await expect(page.locator('input[name="addons"][value="Polaroid"]')).toBeChecked();
   await page.locator('input[name="thirdAddons"][value="Elite"]').check();
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
-  await expect(page.locator('#total')).toHaveText('€4.00');
-  await page.reload();await expect(page.locator('#total')).toHaveText('€4.00');
+  await expect(page.locator('#total')).toHaveText('€6.00');
+  await page.reload();await expect(page.locator('#total')).toHaveText('€6.00');
 });

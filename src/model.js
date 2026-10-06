@@ -8,16 +8,17 @@ export const RECORD_ONLY_ADDONS = ['Super Boost', ...ZERO_BONUS_ADDONS];
 export const BONUS_GROUPS = { ...GROUPS, addons: GROUPS.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon)) };
 export const THIRD_PAIR_OFFERS = ['Golden Ticket','3rd pair half-price combined with 2-4-1'];
 export const ACTIVE_BONUS_GROUPS = {...BONUS_GROUPS,offers:BONUS_GROUPS.offers.filter(offer=>!THIRD_PAIR_OFFERS.includes(offer))};
+export const thirdPairBase = key => key.thirdPairBase === undefined ? 200 : key.thirdPairBase;
 export const thirdPairRate = key => key.thirdPairRate === undefined ? 100 : key.thirdPairRate;
 export const hasLegacyThirdPair = entry => [entry.offers,...Object.values(entry.lensSets || {}).map(set=>set.offers)].flat().some(offer=>THIRD_PAIR_OFFERS.includes(offer));
 export const MODES = { add: 'Add to bonus', replaceAddons: 'Replace add-ons (once)', perAddonReplace: 'Replace add-ons (per add-on)', perAddonAdd: 'Add extra (per add-on)', replaceTotal: 'Replace whole bonus' };
-export const SOURCE = 'Bonus key and paper-table headings supplied directly by the user on 5 October 2026. Golden Ticket and third pair half price are one offer, with separate third-pair add-ons earning €1 each instead of normal add-on rates or an extra base payment. Under the second-pair offer, any add-ons replace the base and add-on bonuses with €5 total. Basic second-pair SV uses €3 from the full key; the later message expressed uncertainty between €3 and €2. Single-column and frame rates apply to both sets. Unpriced paper columns carry no additional bonus.';
+export const SOURCE = 'Bonus key and paper-table headings supplied directly by the user on 5 October 2026. Golden Ticket and third pair half price are one offer, paying €2 immediately plus €1 for each separately selected third-pair add-on; Miyosmart adds zero. Under the second-pair offer, any add-ons replace the base and add-on bonuses with €5 total. Basic second-pair SV uses €3 from the full key; the later message expressed uncertainty between €3 and €2. Single-column and frame rates apply to both sets. Unpriced paper columns carry no additional bonus.';
 export const ruleId = (group, label) => `${group}:${label}`;
 export function defaultKey() {
   const addonRates = [[150,200],[300,350],[400,400],[500,500],[300,300],[400,400],[500,500],[200,200],[500,500],[100,100],[200,200],[250,250],[200,200]];
   const offers = { '2nd pair SV': [300,'replaceTotal'], '2nd-pair add-ons': [500,'replaceTotal'], '3rd pair half-price combined with 2-4-1': [200,'add'], 'Golden Ticket': [100,'perAddonAdd'] };
   return {
-    currency: 'EUR', confirmed: true, source: SOURCE, thirdPairRate:100,
+    currency: 'EUR', confirmed: true, source: SOURCE, thirdPairRate:100, thirdPairBase:200,
     rates: Object.fromEntries(Object.entries(BONUS_GROUPS).flatMap(([group, labels]) => labels.map(label => {
       const id = ruleId(group, label);
       const values = group === 'addons' ? addonRates[labels.indexOf(label)] : group === 'types' ? [label === '160' ? 150 : ['190','240'].includes(label) ? 300 : 0] : [offers[label][0]];
@@ -83,6 +84,7 @@ export function validateState(state) {
     if (!rate || ![rate.first,rate.second].every(v => v === null || (Number.isSafeInteger(v) && v >= 0 && v <= 1000000))) throw new Error(`Invalid rate for ${label}.`);
     if (group === 'offers' ? ![null,...Object.keys(MODES)].includes(rate.mode) : rate.mode !== 'add') throw new Error(`Invalid rule for ${label}.`);
   }
+  if (thirdPairBase(key)!==null && (!Number.isSafeInteger(thirdPairBase(key)) || thirdPairBase(key)<0 || thirdPairBase(key)>1000000)) throw new Error('Invalid third-pair base bonus.');
   if (thirdPairRate(key)!==null && (!Number.isSafeInteger(thirdPairRate(key)) || thirdPairRate(key)<0 || thirdPairRate(key)>1000000)) throw new Error('Invalid third-pair rate.');
   const ids = new Set();
   for (const entry of state.entries) {
@@ -100,7 +102,9 @@ export function calculate(entry,key) {
   if (legacy) result.issues.push('Review this older Golden Ticket / third-pair offer: select its add-ons in the separate third-pair section.');
   if (entry.thirdPair?.enabled) {
     const addons=entry.thirdPair.addons.filter(addon=>!ZERO_BONUS_ADDONS.includes(addon));
-    if (!entry.thirdPair.addons.length) result.issues.push('Select the third-pair add-ons, or untick the third-pair offer.');
+    const base=thirdPairBase(key);
+    if (base===null) result.issues.push('Third-pair base bonus missing.');
+    result.parts.push({label:'Golden Ticket / third pair',cents:base ?? 0});
     const rate=thirdPairRate(key);
     if (addons.length && rate===null) result.issues.push('Third-pair add-on rate missing.');
     for (const addon of addons) result.parts.push({label:`3rd pair · ${addon}`,cents:rate ?? 0});

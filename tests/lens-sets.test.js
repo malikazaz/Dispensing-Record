@@ -24,7 +24,7 @@ test('second-pair flat and third-pair bonuses remain independent',()=>{
   const entry=record();entry.types.push('SV');
   entry.lensSets.second={addons:['Polaroid','Tint'],offers:['2nd pair SV']};
   entry.thirdPair={enabled:true,addons:['Polaroid','Tailormade']};
-  assert.equal(calculate(entry,defaultKey()).cents,1150); // 3 frame + 1.50 first + 5 flat + 2 Golden Ticket
+  assert.equal(calculate(entry,defaultKey()).cents,1350); // 3 frame + 1.50 first + 5 flat + 2 base + 2 Golden Ticket
   entry.thirdPair={enabled:false,addons:[]};
   entry.lensSets.second={addons:[],offers:['2nd pair SV']};
   assert.equal(calculate(entry,defaultKey()).cents,750);

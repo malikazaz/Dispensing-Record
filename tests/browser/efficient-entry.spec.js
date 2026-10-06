@@ -80,7 +80,7 @@ test('switching lens sets keeps independent choices and saves both in one record
   await select('UCSC');
   await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€6.50');
   await page.locator('.offers summary').click(); await page.locator('#third-pair-enabled').check(); await page.locator('input[name="thirdAddons"][value="Tint"]').check();
-  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€7.50');
+  await expect(page.locator('#bonus-preview .bonus-line strong')).toHaveText('€9.50');
   await select('first');
   await expect(page.locator('input:not([name="thirdAddons"])[value="UCSC"]')).toBeChecked();
   await expect(page.locator('#third-pair-enabled')).toBeChecked();

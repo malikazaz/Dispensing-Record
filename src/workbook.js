@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { GROUPS, ACTIVE_BONUS_GROUPS, thirdPairRate, MODES, calculate, money, ruleId } from './model.js';
+import { GROUPS, ACTIVE_BONUS_GROUPS, thirdPairRate, thirdPairBase, MODES, calculate, money, ruleId } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
 import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
@@ -69,12 +69,12 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
     row.values=[{types:'Paper column',addons:'Add-on',offers:'Special offer'}[group],label,rate.first===null?'Unknown':rate.first/100,rate.second===null?'Unknown':rate.second/100,MODES[rate.mode]||'Needs confirmation'];
     row.eachCell(bodyCell);row.getCell(3).numFmt=currencyFormat;row.getCell(4).numFmt=currencyFormat;row.height=label.length>35?36:24;
   }
-  const thirdRow=key.getRow(r++);thirdRow.values=['Third pair','Golden Ticket / half price','','',thirdPairRate(state.key)===null?'Unknown':money(thirdPairRate(state.key),state.key.currency)+' per add-on'];thirdRow.eachCell(bodyCell);thirdRow.height=24;
+  const thirdRow=key.getRow(r++);thirdRow.values=['Third pair','Golden Ticket / half price','','',(thirdPairBase(state.key)===null?'Unknown':money(thirdPairBase(state.key),state.key.currency))+' base + '+(thirdPairRate(state.key)===null?'Unknown':money(thirdPairRate(state.key),state.key.currency))+' per add-on'];thirdRow.eachCell(bodyCell);thirdRow.height=24;
   for(const note of [
-    'Under 241, second-set Elite, Tailormade and Supereader designs are free. Free Supereader earns included UCSC once, or only the second-set 1.6, 1.67 or 1.74 rate if selected; UCSC is not added on top. Second-pair flat offers require SV, not varifocals. Golden Ticket / third pair half price pays only its separate add-ons at the third-pair rate.',
+    'Under 241, second-set Elite, Tailormade and Supereader designs are free. Free Supereader earns included UCSC once, or only the second-set 1.6, 1.67 or 1.74 rate if selected; UCSC is not added on top. Second-pair flat offers require SV, not varifocals. Golden Ticket / third pair half price pays its base bonus plus its separate add-ons at the third-pair rate.',
     'Records with both lens sets add each set separately. Shared frame bonuses are counted once using first-set rates. A second-pair flat offer replaces only the second-set amount; first-set and shared frame bonuses remain. Third-pair selections are independent of both lens sets.',
     'Second-pair SV: with no add-ons, use its basic rate. With any add-ons, use the second-pair flat rate once, replacing the base, frame and individual add-on amounts. Selecting both second-pair offers still pays the flat rate only once.',
-    'Golden Ticket and third pair half price are one offer, with no extra base payment. Each third-pair add-on counts once; normal rates and included UCSC do not apply. Super Boost also earns the third-pair rate. Miyosmart always earns zero. Older offers without third-pair selections need review.',
+    'Golden Ticket and third pair half price are one offer: the base bonus is paid once as soon as selected, even without add-ons. Each third-pair add-on counts once; normal rates and included UCSC do not apply. Super Boost also earns the third-pair rate. Miyosmart always earns zero. Older offers without third-pair selections need review.',
     'Unpriced paper columns are markers with zero bonus. Single-column add-on and frame rates apply to both lens sets. With 241 selected, only the highest-priced selected frame earns a frame bonus. Lens add-ons are calculated separately. Choose only the options actually purchased.',
     'Excel bonuses are exported snapshots, not recalculating entry forms. Edit records or rates in the app and export again. The TOTAL cell is a SUM formula with a cached result. Pending records are excluded, never treated as a confirmed zero.',
     `Source: ${state.key.source}`,

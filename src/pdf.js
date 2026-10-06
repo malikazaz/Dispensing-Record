@@ -1,6 +1,6 @@
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import pdfFonts from 'pdfmake/build/vfs_fonts.js';
-import { GROUPS, ACTIVE_BONUS_GROUPS, thirdPairRate, MODES, calculate, money, ruleId } from './model.js';
+import { GROUPS, ACTIVE_BONUS_GROUPS, thirdPairRate, thirdPairBase, MODES, calculate, money, ruleId } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
 import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
@@ -49,7 +49,7 @@ export function pdfDefinition(state, options = {mode:'all'}) {
       MODES[rate.mode] || 'Needs confirmation',
     ]);
   }
-  keyBody.push(['Third pair','Golden Ticket / half price','—','—',thirdPairRate(state.key)===null?'Unknown':money(thirdPairRate(state.key),state.key.currency)+' per add-on']);
+  keyBody.push(['Third pair','Golden Ticket / half price','—','—',(thirdPairBase(state.key)===null?'Unknown':money(thirdPairBase(state.key),state.key.currency))+' base + '+(thirdPairRate(state.key)===null?'Unknown':money(thirdPairRate(state.key),state.key.currency))+' per add-on']);
   return {
     pageSize:'A3',pageOrientation:'landscape',pageMargins:[28,45,28,38],
     info:{title,author:'Dispensing Record',subject:period,creator:'Dispensing Record'},
@@ -67,7 +67,7 @@ export function pdfDefinition(state, options = {mode:'all'}) {
       {text:'BONUS KEY',pageBreak:'before',fontSize:22,bold:true,color:GREEN,margin:[0,0,0,10]},
       {text:`Currency: ${state.key.currency}. Key ${state.key.confirmed ? 'confirmed' : 'not confirmed'}. Rates at the time of export.`,margin:[0,0,0,12]},
       {table:{headerRows:1,keepWithHeaderRows:1,dontBreakRows:true,widths:[100,280,100,100,'*'],body:keyBody},layout:{...layout,paddingTop:()=>3.5,paddingBottom:()=>3.5}},
-      {text:'Both lens sets contribute to the total; shared frames use first-set rates once. Second-pair flat offers require SV, not varifocals; first-set and shared frame bonuses remain. For older single-set records, the flat amount replaces the whole bonus. Golden Ticket / third pair half price pays only the separately selected third-pair add-ons at the third-pair rate. No base bonus or normal lens rate is added; Super Boost also earns the third-pair rate. Miyosmart always earns zero.',margin:[0,12,0,6],fontSize:9},
+      {text:'Both lens sets contribute to the total; shared frames use first-set rates once. Second-pair flat offers require SV, not varifocals; first-set and shared frame bonuses remain. For older single-set records, the flat amount replaces the whole bonus. Golden Ticket / third pair half price pays its base bonus immediately, plus the third-pair rate for each separately selected add-on. No normal lens rate is added; Super Boost also earns the third-pair rate. Miyosmart always earns zero.',margin:[0,12,0,6],fontSize:9},
       {text:'241: only the highest-priced frame earns a bonus. Second-set varifocal designs are free. Supereader earns included UCSC once, or only the selected 1.6, 1.67 or 1.74 second-set rate. Combined choices count once; pending bonuses are excluded.',margin:[0,0,0,6],fontSize:9},
       {text:`Source / notes: ${state.key.source}`,fontSize:9,color:'#657a5a'},
     ],

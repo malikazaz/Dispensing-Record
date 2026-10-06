@@ -25,15 +25,15 @@ test('save, persist, edit, export exact paper table and remove on desktop and mo
   await showRecords(page);await page.getByRole('button',{name:'Edit Alex Morgan',exact:true}).click();
   await page.getByText('Special offers',{exact:false}).first().click();await page.locator('#third-pair-enabled').check();
   for(const value of ['Polaroid','Elite']) await page.locator(`input[name="thirdAddons"][value="${value}"]`).check();
-  await expect(page.locator('#bonus-preview')).toContainText('€7.00');
+  await expect(page.locator('#bonus-preview')).toContainText('€9.00');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
-  await expect(page.locator('#total')).toHaveText('€7.00');
+  await expect(page.locator('#total')).toHaveText('€9.00');
   await page.getByRole('button',{name:'Export records',exact:true}).click();
   await page.getByRole('combobox',{name:'Export period',exact:true}).selectOption('all');
   const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download Excel',exact:true}).click();
   const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
   const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(await download.path());
-  const sheet=workbook.getWorksheet('Dispensing Record');expect(sheet.getCell('B5').value).toBe('001234');expect(sheet.getCell('Q5').value).toBe(7);
+  const sheet=workbook.getWorksheet('Dispensing Record');expect(sheet.getCell('B5').value).toBe('001234');expect(sheet.getCell('Q5').value).toBe(9);
   expect(sheet.getRow(4).values.slice(1)).toEqual(['Date','Cust No','CX Name','SV','BIF','Vari','241','Other','RE','70','95','130','160','190','240','Addons','Bonus']);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   page.once('dialog',dialog=>dialog.accept());await showRecords(page);await page.getByRole('button',{name:'Remove Alex Morgan',exact:true}).click();
