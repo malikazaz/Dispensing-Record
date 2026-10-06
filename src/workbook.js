@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { GROUPS, ACTIVE_BONUS_GROUPS, thirdPairRate, thirdPairBase, MODES, calculate, money, ruleId } from './model.js';
+import { GROUPS, calculate, money } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
 import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
@@ -35,7 +35,7 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
   sheet.getCell('A1').alignment={vertical:'middle',wrapText:true};
   sheet.mergeCells('A2:Q2');sheet.getCell('A2').value=`${selection.entries.length} records  •  ${total.pending?'Confirmed bonus':'Total bonus'}: ${money(total.cents,state.key.currency)}${total.pending?`  •  ${total.pending} pending records excluded from total`:''}`;
   sheet.getCell('A2').font={name:'Calibri',size:11,color:{argb:ink}};sheet.getRow(2).height=25;
-  sheet.mergeCells('A3:Q3');sheet.getCell('A3').value=`${periodLabel(selection)}. Lens set and special offers appear in Addons. Bonus values reflect the exported key.`;
+  sheet.mergeCells('A3:Q3');sheet.getCell('A3').value=`${periodLabel(selection)}. Lens set and special offers appear in Addons. Bonus values are a snapshot at the time of export.`;
   sheet.getCell('A3').font={name:'Calibri',size:10,color:{argb:'FF6C7C65'}};sheet.getRow(3).height=23;
   sheet.getRow(4).values=PAPER_HEADERS;header(sheet.getRow(4));
   const entries=selection.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
@@ -58,30 +58,6 @@ export function makeWorkbook(state, options = { mode: 'all' }) {
   if(entries.length)sheet.autoFilter={from:'A4',to:`Q${last}`};
   sheet.pageSetup.printArea=`A1:Q${totalRow}`;sheet.pageSetup.printTitlesRow='1:4';
 
-  const key=workbook.addWorksheet('Bonus key',{views:[{state:'frozen',ySplit:4,showGridLines:false}],pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});
-  key.columns=[{width:18},{width:45},{width:14},{width:14},{width:33}];
-  title(key,'A1:E1','BONUS KEY');key.getRow(1).height=38;
-  key.mergeCells('A2:E2');key.getCell('A2').value=`Currency: ${state.key.currency}. Key ${state.key.confirmed?'confirmed':'not confirmed'}. Rates and offer rules at the time of export.`;key.getRow(2).height=23;
-  key.getRow(4).values=['Category','Item','1st set','2nd set','Calculation'];header(key.getRow(4));
-  let r=5;
-  for(const [group,labels]of Object.entries(ACTIVE_BONUS_GROUPS))for(const label of labels){
-    const rate=state.key.rates[ruleId(group,label)],row=key.getRow(r++);
-    row.values=[{types:'Paper column',addons:'Add-on',offers:'Special offer'}[group],label,rate.first===null?'Unknown':rate.first/100,rate.second===null?'Unknown':rate.second/100,MODES[rate.mode]||'Needs confirmation'];
-    row.eachCell(bodyCell);row.getCell(3).numFmt=currencyFormat;row.getCell(4).numFmt=currencyFormat;row.height=label.length>35?36:24;
-  }
-  const thirdRow=key.getRow(r++);thirdRow.values=['Third pair','Golden Ticket / half price','','',(thirdPairBase(state.key)===null?'Unknown':money(thirdPairBase(state.key),state.key.currency))+' base + '+(thirdPairRate(state.key)===null?'Unknown':money(thirdPairRate(state.key),state.key.currency))+' per add-on'];thirdRow.eachCell(bodyCell);thirdRow.height=24;
-  for(const note of [
-    'Under 241, second-set Elite, Tailormade and Supereader designs are free. Free Supereader earns included UCSC once, or only the second-set 1.6, 1.67 or 1.74 rate if selected; UCSC is not added on top. Second-pair flat offers require SV, not varifocals. Golden Ticket / third pair half price pays its base bonus plus its separate add-ons at the third-pair rate.',
-    'Records with both lens sets add each set separately. Shared frame bonuses are counted once using first-set rates. A second-pair flat offer replaces only the second-set amount; first-set and shared frame bonuses remain. Third-pair selections are independent of both lens sets.',
-    'Second-pair SV: with no add-ons, use its basic rate. With any add-ons, use the second-pair flat rate once, replacing the base, frame and individual add-on amounts. Selecting both second-pair offers still pays the flat rate only once.',
-    'Golden Ticket and third pair half price are one offer: the base bonus is paid once as soon as selected, even without add-ons. Each third-pair add-on counts once; normal rates and included UCSC do not apply. Super Boost also earns the third-pair rate. Miyosmart always earns zero. Older offers without third-pair selections need review.',
-    'Unpriced paper columns are markers with zero bonus. Single-column add-on and frame rates apply to both lens sets. With 241 selected, only the highest-priced selected frame earns a frame bonus. Lens add-ons are calculated separately. Choose only the options actually purchased.',
-    'Excel bonuses are exported snapshots, not recalculating entry forms. Edit records or rates in the app and export again. The TOTAL cell is a SUM formula with a cached result. Pending records are excluded, never treated as a confirmed zero.',
-    `Source: ${state.key.source}`,
-  ]) {
-    r++;key.mergeCells(`A${r}:E${r}`);const cell=key.getCell(`A${r}`);cell.value=note;cell.font={name:'Calibri',size:10,color:{argb:'FF657A5A'}};cell.alignment={wrapText:true,vertical:'middle'};key.getRow(r).height=Math.max(34,Math.ceil(note.length/145)*15+12);
-  }
-  key.pageSetup.printArea=`A1:E${r}`;
   return workbook;
 }
 export async function exportWorkbook(state, options = { mode: 'all' }) {

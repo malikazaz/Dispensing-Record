@@ -15,7 +15,7 @@ test('Excel round trip preserves exact headings, text IDs, dates, numeric bonuse
   assert.equal(sheet.getCell('Q5').value,6.5);assert.match(sheet.getCell('Q5').numFmt,/€/);
   assert.deepEqual(sheet.getCell('Q6').value,{formula:'SUM(Q5:Q5)',result:6.5});
   assert.equal(sheet.views[0].ySplit,4);assert.equal(sheet.pageSetup.orientation,'landscape');
-  assert.ok(book.getWorksheet('Bonus key'));assert.ok(sheet.getCell('Q5').font.bold);
+  assert.deepEqual(book.worksheets.map(sheet=>sheet.name),['Dispensing Record']);assert.ok(sheet.getCell('Q5').font.bold);
 });
 test('pending rows export explicitly and do not poison confirmed total',async()=>{
   const state=initialState();state.entries=[{...blankEntry(),id:'1',date:'2026-10-05',number:'1',name:'A',types:['SV'],offers:['2nd pair SV']},{...blankEntry(),id:'2',date:'2026-10-05',number:'2',name:'B',types:['SV'],addons:['Elite']}];

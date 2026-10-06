@@ -1,6 +1,6 @@
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import pdfFonts from 'pdfmake/build/vfs_fonts.js';
-import { GROUPS, ACTIVE_BONUS_GROUPS, thirdPairRate, thirdPairBase, MODES, calculate, money, ruleId } from './model.js';
+import { GROUPS, calculate, money } from './model.js';
 import { selectExport, periodLabel } from './export-selection.js';
 import { PAPER_HEADERS, recordDetails } from './export-table.js';
 
@@ -39,17 +39,6 @@ export function pdfDefinition(state, options = {mode:'all'}) {
     ...Array.from({length:15},() => ({})),
     {text:money(selection.total.cents,state.key.currency),alignment:'right',bold:true,fillColor:'#eaf1e6',color:GREEN},
   ]);
-  const keyBody = [['Category','Item','1st set','2nd set','Calculation'].map(headerCell)];
-  for (const [group,labels] of Object.entries(ACTIVE_BONUS_GROUPS)) for (const label of labels) {
-    const rate = state.key.rates[ruleId(group,label)];
-    keyBody.push([
-      {types:'Paper column',addons:'Add-on',offers:'Special offer'}[group],label,
-      rate.first === null ? 'Unknown' : money(rate.first,state.key.currency),
-      rate.second === null ? 'Unknown' : money(rate.second,state.key.currency),
-      MODES[rate.mode] || 'Needs confirmation',
-    ]);
-  }
-  keyBody.push(['Third pair','Golden Ticket / half price','—','—',(thirdPairBase(state.key)===null?'Unknown':money(thirdPairBase(state.key),state.key.currency))+' base + '+(thirdPairRate(state.key)===null?'Unknown':money(thirdPairRate(state.key),state.key.currency))+' per add-on']);
   return {
     pageSize:'A3',pageOrientation:'landscape',pageMargins:[28,45,28,38],
     info:{title,author:'Dispensing Record',subject:period,creator:'Dispensing Record'},
@@ -63,13 +52,7 @@ export function pdfDefinition(state, options = {mode:'all'}) {
       ...(selection.total.pending ? [{text:`${selection.total.pending} pending records are listed but excluded from the confirmed total. Review their bonus rules in the app.`,color:'#91611e',margin:[0,0,0,7]}] : []),
       {text:'X marks a selected paper column. Lens set and special offers are included in Addons.',fontSize:9,color:'#657a5a',margin:[0,0,0,12]},
       {table:{headerRows:1,keepWithHeaderRows:1,dontBreakRows:true,widths:[60,65,140,...GROUPS.types.map(() => 26),'*',82],body},layout},
-      {text:'Bonus values are a snapshot of the key below. Edit records or rates in the app and export again to recalculate.',fontSize:9,color:'#657a5a',margin:[0,10,0,0]},
-      {text:'BONUS KEY',pageBreak:'before',fontSize:22,bold:true,color:GREEN,margin:[0,0,0,10]},
-      {text:`Currency: ${state.key.currency}. Key ${state.key.confirmed ? 'confirmed' : 'not confirmed'}. Rates at the time of export.`,margin:[0,0,0,12]},
-      {table:{headerRows:1,keepWithHeaderRows:1,dontBreakRows:true,widths:[100,280,100,100,'*'],body:keyBody},layout:{...layout,paddingTop:()=>3.5,paddingBottom:()=>3.5}},
-      {text:'Both lens sets contribute to the total; shared frames use first-set rates once. Second-pair flat offers require SV, not varifocals; first-set and shared frame bonuses remain. For older single-set records, the flat amount replaces the whole bonus. Golden Ticket / third pair half price pays its base bonus immediately, plus the third-pair rate for each separately selected add-on. No normal lens rate is added; Super Boost also earns the third-pair rate. Miyosmart always earns zero.',margin:[0,12,0,6],fontSize:9},
-      {text:'241: only the highest-priced frame earns a bonus. Second-set varifocal designs are free. Supereader earns included UCSC once, or only the selected 1.6, 1.67 or 1.74 second-set rate. Combined choices count once; pending bonuses are excluded.',margin:[0,0,0,6],fontSize:9},
-      {text:`Source / notes: ${state.key.source}`,fontSize:9,color:'#657a5a'},
+      {text:'Bonus values are a snapshot at the time of export. Edit records or rates in the app and export again to recalculate.',fontSize:9,color:'#657a5a',margin:[0,10,0,0]},
     ],
   };
 }

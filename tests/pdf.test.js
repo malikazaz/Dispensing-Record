@@ -16,7 +16,7 @@ test('PDF contains only selected dates, exact headings, Unicode names, pending w
   assert.match(text,/3 records/);assert.match(text,/Confirmed bonus: €4.00/);assert.match(text,/TOTAL CONFIRMED BONUS\s+€4.00/);
   assert.match(text,/José O’Connor/);assert.match(text,/000first/);assert.match(text,/000last/);assert.match(text,/Pending/);
   assert.doesNotMatch(text,/000before|000after/);assert.match(text,/Date\s+Cust No\s+CX Name\s+SV\s+BIF\s+Vari\s+241\s+Other\s+RE\s+70\s+95\s+130\s+160\s+190\s+240\s+Addons\s+Bonus/);
-  assert.match(text,/BONUS KEY/);assert.equal(pages.length,2);assert.deepEqual(state,before);
+  assert.doesNotMatch(text,/BONUS KEY|key below/);assert.equal(pages.length,1);assert.deepEqual(state,before);
 });
 test('long PDF reports repeat headings, preserve every record, number pages and fit text within page bounds',async()=>{
   const state=initialState();state.key.currency='GBP';
