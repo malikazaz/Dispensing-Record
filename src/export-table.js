@@ -11,6 +11,7 @@ export function recordDetails(entry,result) {
       return `${addon}${isFreeVarifocal(lens,addon) ? ' (free under 241)' : ''}`;
     }).join(' + ') || 'No add-ons';
   };
-  if (entry.lensSets) return [...['first','second'].flatMap(set => [`${set==='first'?'1st':'2nd'} set of lenses: ${addonsText(set,entry.lensSets[set].addons)}`, ...entry.lensSets[set].offers.map(offer => `${set==='first'?'1st':'2nd'} set offer: ${offer}`)]), ...result.issues.map(issue=>`REVIEW: ${issue}`)].join('\n');
-  return [entry.set==='first'?'1st set of lenses':'2nd set of lenses', addonsText(entry.set,entry.addons), ...entry.offers.map(offer=>`Offer: ${offer}`), ...result.issues.map(issue=>`REVIEW: ${issue}`)].join('\n');
+  const third=entry.thirdPair?.enabled ? [`3rd pair (Golden Ticket / half price): ${entry.thirdPair.addons.join(' + ') || 'No add-ons'}`] : [];
+  if (entry.lensSets) return [...['first','second'].flatMap(set => [`${set==='first'?'1st':'2nd'} set of lenses: ${addonsText(set,entry.lensSets[set].addons)}`, ...entry.lensSets[set].offers.map(offer => `${set==='first'?'1st':'2nd'} set offer: ${offer}`)]), ...third, ...result.issues.map(issue=>`REVIEW: ${issue}`)].join('\n');
+  return [entry.set==='first'?'1st set of lenses':'2nd set of lenses', addonsText(entry.set,entry.addons), ...entry.offers.map(offer=>`Offer: ${offer}`), ...third, ...result.issues.map(issue=>`REVIEW: ${issue}`)].join('\n');
 }

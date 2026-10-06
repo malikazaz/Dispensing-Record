@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { initialState, blankEntry } from '../../src/model.js';
 import { readPdf } from '../helpers/read-pdf.js';
-async function select(page,label){await page.locator('label').filter({has:page.locator(`input[value="${label}"]`)}).click();}
+async function select(page,label){await page.locator('label').filter({has:page.locator(`input:not([name="thirdAddons"])[value="${label}"]`)}).click();}
 async function startRecord(page,name='Alex Morgan',number='001234'){
   await showEntry(page);
   await page.getByLabel('Date',{exact:true}).fill('2026-10-05');
@@ -23,7 +23,8 @@ test('save, persist, edit, export exact paper table and remove on desktop and mo
   await expect(page.locator('#total')).toHaveText('€5.00');
   await page.reload();await expect(page.locator('#records')).toContainText('Alex Morgan');
   await showRecords(page);await page.getByRole('button',{name:'Edit Alex Morgan',exact:true}).click();
-  await page.getByText('Special offers',{exact:false}).first().click();await select(page,'Golden Ticket');
+  await page.getByText('Special offers',{exact:false}).first().click();await page.locator('#third-pair-enabled').check();
+  for(const value of ['Polaroid','Elite']) await page.locator(`input[name="thirdAddons"][value="${value}"]`).check();
   await expect(page.locator('#bonus-preview')).toContainText('€7.00');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await expect(page.locator('#total')).toHaveText('€7.00');

@@ -35,12 +35,9 @@ test('flat offers require SV and reject all three second-set varifocals',()=>{
   assert.equal(calculate(entry,defaultKey()).cents,700); // First-set varifocal plus flat second-set SV.
 });
 
-test('Golden Ticket counts paid third-pair varifocals but not free 241 second-set varifocals',()=>{
-  const entry=record('Tailormade');entry.lensSets.second.offers=['Golden Ticket'];
-  assert.equal(calculate(entry,defaultKey()).cents,250);
-  entry.lensSets.second.addons.push('1.74');assert.equal(calculate(entry,defaultKey()).cents,850);
-  const third={...blankEntry(),types:['Vari','241'],addons:['Tailormade'],offers:['3rd pair half-price combined with 2-4-1','Golden Ticket']};
-  assert.equal(calculate(third,defaultKey()).cents,550); // 2.50 paid varifocal + 2 third-pair offer + 1 Golden Ticket.
+test('third-pair varifocals earn only the third-pair rate independently of free second-set lenses',()=>{
+  const entry=record('Tailormade');entry.thirdPair={enabled:true,addons:['Tailormade','1.74']};
+  assert.equal(calculate(entry,defaultKey()).cents,450);
 });
 
 test('free second-set varifocals ignore custom or missing rates, including legacy records',()=>{
@@ -80,8 +77,8 @@ test('free second-set Supereader pays included UCSC once, or only the chosen ind
       assert.equal(calculate(paired,key).cents,200+cents);
       paired.lensSets.first.addons.push('1.74');paired.types.push('160','190');
       assert.equal(calculate(paired,key).cents,1000+cents); // First set 7 + highest frame 3.
-      legacy.offers=['Golden Ticket'];
-      assert.equal(calculate(legacy,key).cents,cents+100); // One paid coating or index, not the free design.
+      legacy.thirdPair={enabled:true,addons:['Tint']};
+      assert.equal(calculate(legacy,key).cents,cents+100); // Independent third-pair selection.
     }
   }
 });

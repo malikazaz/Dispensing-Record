@@ -42,3 +42,7 @@ main{max-width:800px;padding:22px 20px 32px}.workspace{display:block}.form-panel
 @media(max-width:540px){.topbar{padding-inline:16px;height:62px}.brand{font-size:15px}.brand-light{display:inline}.account-toggle{font-size:12px}.account-toggle svg{display:none}main{padding:16px 16px 24px}.stats{gap:8px;margin-bottom:14px}.stat{padding:12px 10px}.stat-label{font-size:10px;min-height:28px}.stat strong,.stat:first-child strong{font-size:23px}.form-panel{padding:18px}.view-tabs button{padding:9px 12px;font-size:12px}.view-toolbar{gap:8px}.view-toolbar>#export{padding:10px 12px;font-size:12px}.view-toolbar>#export svg{width:17px}.date-stepper input{font-size:16px!important}.account-menu{right:0}.account-menu .cloud-panel{padding:0}.account-menu .cloud-actions{width:100%}}
 
 #entry-form input.name-number-warning{border-color:#b42318;background:#fff1f0;color:#912018}#entry-form input.name-number-warning:focus-visible{outline-color:#d96b62}.name-warning{font-size:11px;line-height:1.5;font-weight:400;color:#b42318}
+
+.third-pair-addons { margin-top:18px; padding:16px; border:1px solid var(--border, #d5dfd1); border-radius:12px; min-width:0; }
+.third-pair-addons legend { padding:0 5px; }
+.third-pair-addons .field-hint { margin:0 0 12px; }

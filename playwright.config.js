@@ -7,6 +7,6 @@ export default defineConfig({
   projects:[
     {name:'desktop',use:{...devices['Desktop Chrome']}},
     {name:'mobile',use:{...devices['iPhone 13'],defaultBrowserType:'chromium'}},
-    {name:'mobile-safari',testMatch:['**/mobile-layout.spec.js','**/cloud.spec.js','**/efficient-entry.spec.js','**/export-recovery.spec.js'],use:{...devices['iPhone 13'],defaultBrowserType:'webkit',launchOptions:{}}},
+    {name:'mobile-safari',testMatch:['**/mobile-layout.spec.js','**/cloud.spec.js','**/efficient-entry.spec.js','**/export-recovery.spec.js','**/third-pair.spec.js'],use:{...devices['iPhone 13'],defaultBrowserType:'webkit',launchOptions:{}}},
   ],
 });

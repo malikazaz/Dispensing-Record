@@ -16,13 +16,13 @@ test('Super Boost follows Supereader and adds no bonus with existing keys in eit
   }
 });
 
-test('Super Boost does not trigger flat offers or increase Golden Ticket counts',()=>{
+test('Super Boost is record-only for lens sets but earns the third-pair rate',()=>{
   const key=defaultKey();
   const entry={...blankEntry(),types:['SV'],set:'second',addons:['Super Boost'],offers:['2nd pair SV']};
   assert.equal(calculate(entry,key).cents,300);
   entry.addons.push('Tint');assert.equal(calculate(entry,key).cents,500);
-  entry.offers=['Golden Ticket'];assert.equal(calculate(entry,key).cents,200);
-  entry.addons=['Super Boost'];assert.equal(calculate(entry,key).cents,null);
+  entry.offers=[];entry.thirdPair={enabled:true,addons:['Tint','Super Boost']};assert.equal(calculate(entry,key).cents,300);
+  entry.addons=['Super Boost'];entry.thirdPair={enabled:true,addons:['Super Boost']};assert.equal(calculate(entry,key).cents,100);
   entry.offers=['2nd-pair add-ons'];assert.equal(calculate(entry,key).cents,null);
 });
 

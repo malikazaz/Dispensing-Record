@@ -40,10 +40,13 @@ test('241 selects by frame price, including with custom or missing bonus rates',
   custom.rates['types:190'].first=null;
   assert.equal(calculate(entry({types:['241','160','190']}),custom).cents,null);
 });
-test('Golden Ticket ADDS 1 euro per add-on, including combined add-ons once',()=>{
-  assert.equal(calculate(entry({addons:['Polaroid','Elite'],offers:['Golden Ticket']}),key).cents,700);
-  assert.equal(calculate(entry({addons:['Polaroid 1.6'],offers:['Golden Ticket']}),key).cents,500);
+test('legacy Golden Ticket requires review rather than guessing third-pair add-ons',()=>{
+  for(const offer of ['Golden Ticket','3rd pair half-price combined with 2-4-1']) {
+    const result=calculate(entry({addons:['Polaroid','Elite'],offers:[offer]}),key);
+    assert.equal(result.cents,null);assert.match(result.issues.join(' '),/Review this older/);
+  }
 });
+
 test('basic second pair SV uses the supplied 3 euro rate',()=>assert.equal(calculate(entry({set:'second',offers:['2nd pair SV']}),key).cents,300));
 test('any add-ons under second-pair SV automatically produce exactly 5 euros',()=>{
   for(const addons of [['Tint'],['Polaroid','Reaction','Tint'],GROUPS.addons.filter(addon=>!['Elite','Tailormade','Supereader'].includes(addon))]){
@@ -55,10 +58,6 @@ test('explicit flat offer replaces base, frames and add-ons, not 3+5',()=>{
   assert.equal(result.cents,500);assert.deepEqual(result.parts,[{label:'2nd-pair add-ons',cents:500}]);
 });
 test('second-pair flat offer does not apply to varifocal add-ons',()=>assert.equal(calculate(entry({set:'second',types:['Vari'],addons:['Elite'],offers:['2nd-pair add-ons']}),key).cents,null));
-test('3rd pair adds 2 euros to the selected bonus and requires 241',()=>{
-  assert.equal(calculate(entry({types:['241'],addons:['Tint'],offers:['3rd pair half-price combined with 2-4-1']}),key).cents,300);
-  assert.equal(calculate(entry({offers:['3rd pair half-price combined with 2-4-1']}),key).cents,null);
-});
 test('invalid offer prerequisites stay pending',()=>{
   for(const data of [
     {offers:['2nd pair SV']},

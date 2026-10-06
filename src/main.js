@@ -1,6 +1,6 @@
 import './style.css';
 import { loadExporter, ExportLoadError } from './export-loader.js';
-import { GROUPS, BONUS_GROUPS, MODES, blankEntry, lensSetsOf, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
+import { GROUPS, ACTIVE_BONUS_GROUPS, THIRD_PAIR_OFFERS, thirdPairRate, hasLegacyThirdPair, MODES, blankEntry, lensSetsOf, calculate, localDate, money, parseRate, ruleId, summarise, validateEntry, validateState, initialState, validDate } from './model.js';
 import { loadState, saveState, STORAGE_KEY } from './storage.js';
 import { monthPeriod, selectExport, exportFilename, periodLabel } from './export-selection.js';
 import { documentOf, equal } from './cloud-model.js';
@@ -14,6 +14,7 @@ let state = initialState(), raw = null, storageError = '', editing = null, editi
 try { ({state,raw} = loadState(localStorage)); }
 catch { storageError = 'Saved records could not be read. Existing storage has been left untouched. Download the stored data below for recovery, or restore a valid backup.'; }
 const fmt = (cents) => money(cents,state.key.currency);
+let legacyThirdPair=false;
 let lensDraft, activeLensSet = 'first', legacyLensSet = null;
 let entryDate;
 try { entryDate = readEntryDate(sessionStorage); } catch { entryDate = localDate(); }
@@ -40,7 +41,7 @@ $('#app').innerHTML = `
           <fieldset><legend>Dispense type <span>Select all that apply</span></legend><div class="chips types">${choices('types')}</div></fieldset>
           <fieldset><legend>Lens sets</legend><div class="segmented"><label><input type="radio" name="set" value="first" checked><span>1st set of lenses</span></label><label><input type="radio" name="set" value="second"><span>2nd set of lenses</span></label></div><p class="field-hint">Select add-ons and offers for each set. Both sets save in one record.</p></fieldset>
           <fieldset><legend>Add-ons <span>Optional</span></legend><div class="chips">${choices('addons')}</div></fieldset>
-          <details class="offers"><summary>Special offers <span>Optional</span></summary><div class="offer-list">${choices('offers',true)}</div></details>
+          <details class="offers"><summary>Special offers <span>Optional</span></summary><div class="offer-list">${choices('offers',true)}<label class="offer-choice"><input id="third-pair-enabled" type="checkbox" aria-controls="third-pair-addons" aria-expanded="false"><span>Golden Ticket / Third pair half price</span></label></div><fieldset id="third-pair-addons" class="third-pair-addons" hidden><legend>Third-pair add-ons</legend><p id="third-pair-hint" class="field-hint"></p><div class="chips">${choices('thirdAddons')}</div></fieldset><p id="third-pair-review" class="inline-error" hidden>Review this older offer: select the third-pair add-ons below, or untick the offer if it does not apply.</p></details>
           <div id="bonus-preview" class="bonus-preview" aria-live="polite"></div>
           <div id="form-error" class="inline-error" role="alert" hidden></div>
           <div class="form-actions"><button id="save-entry" type="submit" class="button primary">${icon('plus')}Save dispense</button><button id="clear-entry" class="button secondary" type="button">Clear form</button><button id="cancel-edit" class="button secondary" type="button" hidden>Cancel edit</button></div>
@@ -70,7 +71,7 @@ $('#app').innerHTML = `
   <dialog id="key-dialog" aria-labelledby="key-title"><form id="key-form"><div class="dialog-heading"><div><p class="eyebrow">REFERENCE & SETTINGS</p><h2 id="key-title">Your bonus key</h2></div><button type="button" id="close-key" class="close-button" aria-label="Close bonus key">×</button></div><p class="dialog-intro">Amounts are per selected item. Leave an unknown rate blank; use 0 for a column that earns no bonus. Saving changes recalculates every record.</p><div id="key-content"></div><div id="key-error" class="inline-error" role="alert" hidden></div><div class="dialog-actions"><button type="button" id="cancel-key" class="button secondary">Cancel</button><button class="button primary" type="submit">Save bonus key</button></div></form></dialog>`;
 
 function choices(group, long=false) {
-  return GROUPS[group].map(label => `<label class="${long?'offer-choice':'chip'}"><input type="checkbox" name="${group}" value="${escape(label)}"><span>${escape(label)}</span></label>`).join('');
+  return (group==='offers'?ACTIVE_BONUS_GROUPS.offers:group==='thirdAddons'?GROUPS.addons:GROUPS[group]).map(label => `<label class="${long?'offer-choice':'chip'}"><input type="checkbox" name="${group}" value="${escape(label)}"><span>${escape(label)}</span></label>`).join('');
 }
 let noticeTimer;
 function notify(message) { $('#notice').textContent = message; $('#notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { $('#notice').hidden = true; }, 5000); }
@@ -94,12 +95,12 @@ function captureLensSet() {
 }
 function showLensSet() {
   for (const group of ['addons','offers']) for (const input of $('#entry-form').querySelectorAll(`input[name="${group}"]`)) input.checked = lensDraft[activeLensSet][group].includes(input.value);
-  $('.offers').open = lensDraft[activeLensSet].offers.length > 0;
+  $('.offers').open = lensDraft[activeLensSet].offers.length > 0 || $('#third-pair-enabled').checked;
 }
 function readEntry() {
   captureLensSet();
   const form = new FormData($('#entry-form'));
-  const base = { id: editing || '', date: form.get('date'), number: form.get('number').trim(), name: form.get('name').trim(), types: form.getAll('types') };
+  const base = { id: editing || '', date: form.get('date'), number: form.get('number').trim(), name: form.get('name').trim(), types: form.getAll('types'), thirdPair:{enabled:$('#third-pair-enabled').checked,addons:$('#third-pair-enabled').checked?form.getAll('thirdAddons'):[]} };
   // Old single-set records retain their original calculation until another set is added.
   const otherSet = legacyLensSet === 'first' ? 'second' : 'first';
   if (legacyLensSet && !lensDraft[otherSet].addons.length && !lensDraft[otherSet].offers.length) return {...base, set: legacyLensSet, ...structuredClone(lensDraft[legacyLensSet])};
@@ -108,6 +109,11 @@ function readEntry() {
 function fillEntry(entry={...blankEntry(),date:entryDate}) {
   const form = $('#entry-form');
   lensDraft = lensSetsOf(entry);
+  legacyThirdPair=hasLegacyThirdPair(entry);
+  for (const set of Object.values(lensDraft)) set.offers=set.offers.filter(offer=>!THIRD_PAIR_OFFERS.includes(offer));
+  $('#third-pair-enabled').checked=entry.thirdPair?.enabled || legacyThirdPair;
+  for (const input of form.querySelectorAll('input[name="thirdAddons"]')) input.checked=entry.thirdPair?.addons.includes(input.value) || false;
+  updateThirdPair();
   activeLensSet = entry.set;
   legacyLensSet = entry.id && !entry.lensSets ? entry.set : null;
   for (const name of ['date','number','name']) form.elements[name].value = entry[name];
@@ -121,6 +127,13 @@ function fillEntry(entry={...blankEntry(),date:entryDate}) {
   updateNameWarning();
   updatePreview();
   updateDateButtons();
+}
+function updateThirdPair() {
+  const enabled=$('#third-pair-enabled').checked;
+  $('#third-pair-addons').hidden=!enabled;
+  $('#third-pair-enabled').setAttribute('aria-expanded',String(enabled));
+  $('#third-pair-hint').textContent=`${thirdPairRate(state.key)===null?'Rate needs review':fmt(thirdPairRate(state.key))+' per selected add-on'}. Separate from the first and second sets. Super Boost also earns this rate.`;
+  $('#third-pair-review').hidden=!legacyThirdPair || !enabled;
 }
 function updateNameWarning() {
   const input = $('#customer-name');
@@ -168,6 +181,7 @@ for (const name of ['entry', 'records']) {
 }
 function updatePreview() {
   const entry = readEntry();
+  updateThirdPair();
   const result = calculate(entry,state.key);
   const selected = entry.types.length > 0;
   $('#bonus-preview').innerHTML = `<div class="bonus-line"><span>${result.cents === null && selected ? 'Bonus needs review':'Bonus for this dispense'}</span><strong>${!selected ? '—' : result.cents === null ? 'Pending' : fmt(result.cents)}</strong></div>${selected ? `<div class="breakdown">${result.parts.filter(p=>p.cents || p.free).map(p=>`<span>${escape(p.label)}${p.free ? ' (free under 241)' : ''} <b>${fmt(p.cents)}</b></span>`).join('') || 'No additional bonus selected.'}</div>${result.issues.length ? `<ul class="issue-list">${result.issues.map(s=>`<li>${escape(s)}</li>`).join('')}</ul>` : ''}` : '<p>Select a dispense type to get started.</p>'}`;
@@ -193,11 +207,12 @@ function renderRecords() {
   }
   $('#records').innerHTML = `<div class="table-scroll"><table class="record-table"><thead><tr><th>Date / customer</th><th>Dispense details</th><th class="bonus-heading">Bonus</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${entries.map(entry=>{
     const result=calculate(entry,state.key);
-    return `<tr><td><span class="record-date">${dateText(entry.date)}</span><strong class="customer-name">${escape(entry.name)}</strong><span class="customer-number">#${escape(entry.number)}</span></td><td><div class="record-tags">${entry.types.map(t=>`<span>${escape(t)}</span>`).join('')}<span class="set-tag">${entry.lensSets?'Lens sets':entry.set==='first'?'1st set':'2nd set'}</span></div><p class="record-addons">${escape(entry.lensSets ? ['first','second'].map(set => `${set==='first'?'1st':'2nd'}: ${[...entry.lensSets[set].addons,...entry.lensSets[set].offers].join(' + ') || 'No add-ons'}`).join(' · ') : entry.addons.join(' + ') || 'No add-ons')}</p>${!entry.lensSets && entry.offers.length?`<p class="record-offers">${escape(entry.offers.join(' · '))}</p>`:''}${result.issues.length?`<details class="row-review"><summary>Review bonus</summary><ul>${result.issues.map(i=>`<li>${escape(i)}</li>`).join('')}</ul></details>`:''}</td><td class="row-bonus ${result.cents===null?'pending':''}">${result.cents===null?'Pending':fmt(result.cents)}</td><td class="row-actions"><button class="icon-button" data-action="edit" data-id="${entry.id}" aria-label="Edit ${escape(entry.name)}">${icon('edit')}</button><button class="icon-button danger" data-action="remove" data-id="${entry.id}" aria-label="Remove ${escape(entry.name)}">${icon('trash')}</button></td></tr>`;
+    return `<tr><td><span class="record-date">${dateText(entry.date)}</span><strong class="customer-name">${escape(entry.name)}</strong><span class="customer-number">#${escape(entry.number)}</span></td><td><div class="record-tags">${entry.types.map(t=>`<span>${escape(t)}</span>`).join('')}<span class="set-tag">${entry.lensSets?'Lens sets':entry.set==='first'?'1st set':'2nd set'}</span></div><p class="record-addons">${escape(entry.lensSets ? ['first','second'].map(set => `${set==='first'?'1st':'2nd'}: ${[...entry.lensSets[set].addons,...entry.lensSets[set].offers].join(' + ') || 'No add-ons'}`).join(' · ') : entry.addons.join(' + ') || 'No add-ons')}</p>${entry.thirdPair?.enabled?`<p class="record-addons">3rd pair: ${escape(entry.thirdPair.addons.join(' + ') || 'No add-ons')}</p>`:''}${!entry.lensSets && entry.offers.length?`<p class="record-offers">${escape(entry.offers.join(' · '))}</p>`:''}${result.issues.length?`<details class="row-review"><summary>Review bonus</summary><ul>${result.issues.map(i=>`<li>${escape(i)}</li>`).join('')}</ul></details>`:''}</td><td class="row-bonus ${result.cents===null?'pending':''}">${result.cents===null?'Pending':fmt(result.cents)}</td><td class="row-actions"><button class="icon-button" data-action="edit" data-id="${entry.id}" aria-label="Edit ${escape(entry.name)}">${icon('edit')}</button><button class="icon-button danger" data-action="remove" data-id="${entry.id}" aria-label="Remove ${escape(entry.name)}">${icon('trash')}</button></td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 
 $('#entry-form').addEventListener('input', event => {
+  if (event.target.id === 'third-pair-enabled') updateThirdPair();
   if (event.target.name === 'name') updateNameWarning();
   if (event.target.name === 'set' && event.target.value !== activeLensSet) {
     captureLensSet();
@@ -246,10 +261,10 @@ $('#records').addEventListener('click',event=>{
 
 function openKey() {
   keyOriginal = structuredClone(state.key);
-  $('#key-content').innerHTML = `<label class="field currency-field">Currency<select name="currency"><option value="EUR" ${state.key.currency==='EUR'?'selected':''}>Euro (€)</option><option value="GBP" ${state.key.currency==='GBP'?'selected':''}>Pound (£)</option></select></label><p class="field-hint">Changing currency relabels amounts; it does not convert them.</p>${Object.entries(BONUS_GROUPS).map(([group,labels])=>`<section class="key-section"><h3>${({types:'Paper-table columns',addons:'Add-ons',offers:'Special offers'})[group]}</h3>${group==='types'?'<p class="field-hint">Columns without a listed bonus use 0. Select all applicable paper columns.</p>':''}<div class="rate-head"><span>Item</span><span>1st set</span><span>2nd set</span></div>${labels.map(label=>{
+  $('#key-content').innerHTML = `<label class="field currency-field">Currency<select name="currency"><option value="EUR" ${state.key.currency==='EUR'?'selected':''}>Euro (€)</option><option value="GBP" ${state.key.currency==='GBP'?'selected':''}>Pound (£)</option></select></label><p class="field-hint">Changing currency relabels amounts; it does not convert them.</p>${Object.entries(ACTIVE_BONUS_GROUPS).map(([group,labels])=>`<section class="key-section"><h3>${({types:'Paper-table columns',addons:'Add-ons',offers:'Special offers'})[group]}</h3>${group==='types'?'<p class="field-hint">Columns without a listed bonus use 0. Select all applicable paper columns.</p>':''}<div class="rate-head"><span>Item</span><span>1st set</span><span>2nd set</span></div>${labels.map(label=>{
     const id=ruleId(group,label),rate=state.key.rates[id];
     return `<div class="rate-row"><span>${escape(label)}</span>${['first','second'].map(set=>`<input aria-label="${escape(label)} ${set==='first'?'1st':'2nd'} set rate" name="${escape(`${id}:${set}`)}" type="number" min="0" max="10000" step="0.01" inputmode="decimal" placeholder="Unknown" value="${rate[set]===null?'':(rate[set]/100).toFixed(2)}">`).join('')}</div>${group==='offers'?`<label class="offer-mode">How this offer applies<select name="${escape(id)}:mode" aria-label="${escape(label)} calculation"><option value="">Needs confirmation</option>${Object.entries(MODES).map(([mode,text])=>`<option value="${mode}" ${rate.mode===mode?'selected':''}>${text}</option>`).join('')}</select></label>`:''}`;
-  }).join('')}</section>`).join('')}<div class="key-notes"><strong>How offers work</strong><p>With 241 selected, tick both frame prices on this record. Only the highest-priced frame earns a frame bonus. Each lens set has its own add-ons and offers; both sets are added to the record total. Under 241, second-set Elite, Tailormade and Supereader designs are free. Free Supereader includes one UCSC bonus; selecting 1.6, 1.67 or 1.74 replaces it with only that second-set index rate. Ticking UCSC as well never adds another coating bonus. Other add-ons keep their normal rates.</p><p>Both second-pair offers require single vision (SV) in the 2nd set; varifocals do not qualify for the flat rate. The third-pair offer requires 241. Golden Ticket adds an extra amount for each paid add-on, including varifocals on a paid third pair. Free 241 varifocals do not count. Under the second-pair SV offer, any add-ons automatically switch to one flat payment instead of the basic bonus and individual add-on rates. The supplied basic SV rate is €3; this can be corrected here if needed. The flat rate defaults to €5. Distinct replacement offers cannot be combined.</p><p>Combined add-ons are separate choices: choose Polaroid 1.6 instead of also selecting Polaroid and 1.6 for the same lens.</p></div><label class="field">Source / notes<textarea name="source" rows="3" maxlength="4000">${escape(state.key.source)}</textarea></label><label class="confirm-key"><input name="confirmed" type="checkbox" ${state.key.confirmed?'checked':''}><span>I have checked these rates and how the selected bonuses combine.</span></label>`;
+  }).join('')}</section>`).join('')}<label class="field">Golden Ticket / third-pair rate per add-on<input name="thirdPairRate" type="number" min="0" max="10000" step="0.01" inputmode="decimal" value="${thirdPairRate(state.key)===null?'':(thirdPairRate(state.key)/100).toFixed(2)}"></label><div class="key-notes"><strong>How offers work</strong><p>With 241 selected, tick both frame prices on this record. Only the highest-priced frame earns a frame bonus. Each lens set has its own add-ons and offers; both sets are added to the record total. Under 241, second-set Elite, Tailormade and Supereader designs are free. Free Supereader includes one UCSC bonus; selecting 1.6, 1.67 or 1.74 replaces it with only that second-set index rate. Ticking UCSC as well never adds another coating bonus. Other add-ons keep their normal rates.</p><p>Both second-pair offers require single vision (SV) in the 2nd set; varifocals do not qualify for the flat rate. Golden Ticket and Third pair half price are one offer. Select its add-ons separately: each earns the third-pair rate, including Elite, Tailormade and Supereader. Normal lens rates, included UCSC and an extra base payment do not apply to the third pair. Super Boost earns the same third-pair rate. Under the second-pair SV offer, any add-ons automatically switch to one flat payment instead of the basic bonus and individual add-on rates. The supplied basic SV rate is €3; this can be corrected here if needed. The flat rate defaults to €5. Distinct replacement offers cannot be combined.</p><p>Combined add-ons are separate choices: choose Polaroid 1.6 instead of also selecting Polaroid and 1.6 for the same lens.</p></div><label class="field">Source / notes<textarea name="source" rows="3" maxlength="4000">${escape(state.key.source)}</textarea></label><label class="confirm-key"><input name="confirmed" type="checkbox" ${state.key.confirmed?'checked':''}><span>I have checked these rates and how the selected bonuses combine.</span></label>`;
   showError($('#key-error'),'');$('#key-dialog').showModal();
 }
 $('#open-key').addEventListener('click',openKey);
@@ -260,8 +275,9 @@ $('#key-form').addEventListener('submit',event=>{
   try {
     const data=new FormData(event.target),key=structuredClone(state.key);
     if (!equal(keyOriginal, state.key)) throw new Error('The bonus key changed online. Close and reopen this window before editing it.');
+    key.thirdPairRate=parseRate(data.get('thirdPairRate'));
     key.currency=data.get('currency');key.confirmed=data.has('confirmed');key.source=data.get('source');
-    for(const [group,labels]of Object.entries(BONUS_GROUPS))for(const label of labels){
+    for(const [group,labels]of Object.entries(ACTIVE_BONUS_GROUPS))for(const label of labels){
       const id=ruleId(group,label);
       key.rates[id]={first:parseRate(data.get(`${id}:first`)),second:parseRate(data.get(`${id}:second`)),mode:group==='offers'?(data.get(`${id}:mode`)||null):'add'};
     }
@@ -349,7 +365,7 @@ $('#export-form').addEventListener('submit',async event=>{
 const EXPORT_RECOVERY_KEY = 'dispensing-record:export-recovery';
 $('#refresh-export').addEventListener('click',()=>{
   const draft=readEntry();
-  if (editing || draft.number || draft.name || draft.types.length || Object.values(lensSetsOf(draft)).some(set=>set.addons.length || set.offers.length)) {
+  if (draft.thirdPair?.enabled || editing || draft.number || draft.name || draft.types.length || Object.values(lensSetsOf(draft)).some(set=>set.addons.length || set.offers.length)) {
     showError($('#export-error'),'Cancel export and save or clear your unfinished dispense before refreshing. Your saved records are safe.');
     return;
   }

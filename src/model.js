@@ -5,14 +5,18 @@ export const GROUPS = {
 };
 export const RECORD_ONLY_ADDONS = ['Super Boost'];
 export const BONUS_GROUPS = { ...GROUPS, addons: GROUPS.addons.filter(addon => !RECORD_ONLY_ADDONS.includes(addon)) };
+export const THIRD_PAIR_OFFERS = ['Golden Ticket','3rd pair half-price combined with 2-4-1'];
+export const ACTIVE_BONUS_GROUPS = {...BONUS_GROUPS,offers:BONUS_GROUPS.offers.filter(offer=>!THIRD_PAIR_OFFERS.includes(offer))};
+export const thirdPairRate = key => key.thirdPairRate === undefined ? 100 : key.thirdPairRate;
+export const hasLegacyThirdPair = entry => [entry.offers,...Object.values(entry.lensSets || {}).map(set=>set.offers)].flat().some(offer=>THIRD_PAIR_OFFERS.includes(offer));
 export const MODES = { add: 'Add to bonus', replaceAddons: 'Replace add-ons (once)', perAddonReplace: 'Replace add-ons (per add-on)', perAddonAdd: 'Add extra (per add-on)', replaceTotal: 'Replace whole bonus' };
-export const SOURCE = 'Bonus key and paper-table headings supplied directly by the user on 5 October 2026. Golden Ticket adds €1 per add-on to the normal bonus (latest correction). Under the second-pair offer, any add-ons replace the base and add-on bonuses with €5 total. Basic second-pair SV uses €3 from the full key; the later message expressed uncertainty between €3 and €2. Single-column and frame rates apply to both sets. Unpriced paper columns carry no additional bonus.';
+export const SOURCE = 'Bonus key and paper-table headings supplied directly by the user on 5 October 2026. Golden Ticket and third pair half price are one offer, with separate third-pair add-ons earning €1 each instead of normal add-on rates or an extra base payment. Under the second-pair offer, any add-ons replace the base and add-on bonuses with €5 total. Basic second-pair SV uses €3 from the full key; the later message expressed uncertainty between €3 and €2. Single-column and frame rates apply to both sets. Unpriced paper columns carry no additional bonus.';
 export const ruleId = (group, label) => `${group}:${label}`;
 export function defaultKey() {
   const addonRates = [[150,200],[300,350],[400,400],[500,500],[300,300],[400,400],[500,500],[200,200],[500,500],[100,100],[200,200],[250,250],[200,200]];
   const offers = { '2nd pair SV': [300,'replaceTotal'], '2nd-pair add-ons': [500,'replaceTotal'], '3rd pair half-price combined with 2-4-1': [200,'add'], 'Golden Ticket': [100,'perAddonAdd'] };
   return {
-    currency: 'EUR', confirmed: true, source: SOURCE,
+    currency: 'EUR', confirmed: true, source: SOURCE, thirdPairRate:100,
     rates: Object.fromEntries(Object.entries(BONUS_GROUPS).flatMap(([group, labels]) => labels.map(label => {
       const id = ruleId(group, label);
       const values = group === 'addons' ? addonRates[labels.indexOf(label)] : group === 'types' ? [label === '160' ? 150 : ['190','240'].includes(label) ? 300 : 0] : [offers[label][0]];
@@ -57,6 +61,10 @@ export function validateEntry(entry) {
     if (!Array.isArray(entry[group]) || entry[group].some(v => !labels.includes(v)) || new Set(entry[group]).size !== entry[group].length) throw new Error(`Invalid ${group} selection.`);
   }
   if (!entry.types.length) throw new Error('Choose at least one dispense type.');
+  if (entry.thirdPair !== undefined) {
+    const third=entry.thirdPair;
+    if (!third || typeof third !== 'object' || typeof third.enabled !== 'boolean' || !Array.isArray(third.addons) || third.addons.some(addon=>!GROUPS.addons.includes(addon)) || new Set(third.addons).size!==third.addons.length || (!third.enabled && third.addons.length)) throw new Error('Invalid third-pair selections.');
+  }
   if (entry.lensSets !== undefined) {
     if (!entry.lensSets || typeof entry.lensSets !== 'object' || Array.isArray(entry.lensSets)) throw new Error('Invalid lens sets.');
     for (const set of ['first','second']) for (const group of ['addons','offers']) {
@@ -74,6 +82,7 @@ export function validateState(state) {
     if (!rate || ![rate.first,rate.second].every(v => v === null || (Number.isSafeInteger(v) && v >= 0 && v <= 1000000))) throw new Error(`Invalid rate for ${label}.`);
     if (group === 'offers' ? ![null,...Object.keys(MODES)].includes(rate.mode) : rate.mode !== 'add') throw new Error(`Invalid rule for ${label}.`);
   }
+  if (thirdPairRate(key)!==null && (!Number.isSafeInteger(thirdPairRate(key)) || thirdPairRate(key)<0 || thirdPairRate(key)>1000000)) throw new Error('Invalid third-pair rate.');
   const ids = new Set();
   for (const entry of state.entries) {
     validateEntry(entry);
@@ -82,7 +91,24 @@ export function validateState(state) {
   }
   return state;
 }
-export function calculate(entry, key) {
+export function calculate(entry,key) {
+  const legacy=hasLegacyThirdPair(entry);
+  const clean={...entry,offers:entry.offers.filter(offer=>!THIRD_PAIR_OFFERS.includes(offer))};
+  if (entry.lensSets) clean.lensSets=Object.fromEntries(Object.entries(entry.lensSets).map(([set,choices])=>[set,{...choices,offers:choices.offers.filter(offer=>!THIRD_PAIR_OFFERS.includes(offer))}]));
+  const result=calculateBase(clean,key);
+  if (legacy) result.issues.push('Review this older Golden Ticket / third-pair offer: select its add-ons in the separate third-pair section.');
+  if (entry.thirdPair?.enabled) {
+    const addons=entry.thirdPair.addons;
+    if (!entry.thirdPair.addons.length) result.issues.push('Select the third-pair add-ons, or untick the third-pair offer.');
+    const rate=thirdPairRate(key);
+    if (addons.length && rate===null) result.issues.push('Third-pair add-on rate missing.');
+    for (const addon of addons) result.parts.push({label:`3rd pair · ${addon}`,cents:rate ?? 0});
+  }
+  result.subtotal=result.parts.reduce((sum,part)=>sum+part.cents,0);
+  result.cents=result.issues.length?null:result.subtotal;
+  return result;
+}
+function calculateBase(entry, key) {
   if (!entry.lensSets) return calculateSet(entry,key);
   const results = ['first','second'].map(set => {
     const result = calculateSet({...entry, ...entry.lensSets[set], set}, key, set === 'second');
@@ -94,8 +120,6 @@ export function calculate(entry, key) {
   });
   const parts = results.flatMap(result => result.parts);
   const issues = results.flatMap(result => result.issues);
-  const offers = Object.values(entry.lensSets).flatMap(set => set.offers);
-  if (offers.includes('3rd pair half-price combined with 2-4-1') && offers.some(offer => ['2nd pair SV','2nd-pair add-ons'].includes(offer))) issues.push('Second-pair and third-pair offers belong on separate records.');
   const subtotal = parts.reduce((sum,part) => sum + part.cents,0);
   return { cents: issues.length ? null : subtotal, subtotal, parts, issues };
 }
@@ -124,9 +148,7 @@ function calculateSet(entry, key, skipTypes=false) {
   const replace = replacements[0]?.mode;
   if (entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x)) && entry.set !== 'second') issues.push('Second-pair offers require the 2nd lens set.');
   if (entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x)) && (!entry.types.includes('SV') || entry.addons.some(addon => ['Elite','Tailormade','Supereader'].includes(addon)))) issues.push('Second-pair offers apply only to single vision, not varifocals.');
-  if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && !entry.types.includes('241')) issues.push('The 3rd-pair offer requires the 241 column.');
-  if (entry.offers.includes('3rd pair half-price combined with 2-4-1') && entry.offers.some(x => ['2nd pair SV','2nd-pair add-ons'].includes(x))) issues.push('Second-pair and third-pair offers belong on separate records.');
-  if (entry.offers.some(x => ['2nd-pair add-ons','Golden Ticket'].includes(x)) && !bonusAddons.length) issues.push('This offer requires at least one bonus-eligible add-on.');
+  if (entry.offers.includes('2nd-pair add-ons') && !bonusAddons.length) issues.push('This offer requires at least one bonus-eligible add-on.');
   const parts = [];
   // 241 pays for the most expensive frame, irrespective of its bonus rate.
   const frames = entry.types.filter(label => ['70','95','130','160','190','240'].includes(label));
