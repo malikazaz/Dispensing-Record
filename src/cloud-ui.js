@@ -8,7 +8,7 @@ export function installCloudUI({ read, write, locked, backup, notify, assertFres
   host.className = 'cloud-panel'; host.setAttribute('aria-label', 'Online saving');
   host.innerHTML = `<div><strong>Online saving</strong><p id="cloud-status" role="status">Checking online settings…</p><p id="cloud-account" class="field-hint"></p></div>
     <div class="cloud-actions"><button id="cloud-login" class="button secondary" hidden>Sign in</button><button id="cloud-connect" class="button primary" hidden>Connect and upload</button><button id="cloud-sync" class="button secondary" hidden>Sync now</button><button id="cloud-review" class="button secondary" hidden>Review changes</button><button id="cloud-signout" class="link-button" hidden>Sign out</button></div>`;
-  $('#account-menu').append(host, $('#open-key'), $('.page-footer'));
+  $('#account-menu').append(host, $('#summary-toggle'), $('#open-key'), $('.page-footer'));
   function setAccountOpen(open, focus = false) {
     $('#account-menu').hidden = !open;
     $('#account-toggle').setAttribute('aria-expanded', String(open));

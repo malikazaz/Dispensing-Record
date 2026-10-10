@@ -114,3 +114,32 @@ test('login and cloud panel fit narrow phone screens without overlap', async ({ 
     expect(password.y).toBeGreaterThan(email.y + email.height);
   }
 });
+
+
+test('hidden summaries stay private through sync and account locking', async ({page, context}) => {
+ const server=await mock(context, {row:{payload:{...initialState(),entries:[item('private','Privacy example')]},version:1},fail:false},session());
+ await page.goto('/');
+ await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
+ await openAccount(page);
+ await page.getByRole('button',{name:'Hide summaries',exact:true}).click();
+ await page.locator('#cloud-sync').click();
+ await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ await page.reload();
+ await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ await openAccount(page); await page.locator('#cloud-signout').click();
+ await expect(page.locator('#summary-toggle')).toBeDisabled();
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ await login(page);
+ await expect(page.locator('#cloud-status')).toHaveText('Saved online and on this device.');
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ await openAccount(page); await page.getByRole('button',{name:'Show summaries',exact:true}).click();
+ await expect(page.locator('#total')).toBeVisible();
+ await expect(page.locator('#total')).toHaveText('€2.00');
+ await page.locator('#cloud-signout').click();
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ await expect(page.locator('#summary-toggle')).toBeDisabled();
+ expect(server.row.payload.entries).toHaveLength(1);
+ expect(server.row.payload).not.toHaveProperty('summariesHidden');
+});

@@ -74,3 +74,35 @@ test('tabs fill their bar evenly on large phones and fit narrow screens',async({
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  }
 });
+
+
+test('summary privacy persists through reloads and does not change saved records', async ({page, context}) => {
+ await page.goto('/');
+ await page.getByLabel('Customer number',{exact:true}).fill('0007');
+ await page.getByLabel('Customer name',{exact:true}).fill('Privacy example');
+ await page.locator('input[name=types][value=SV]').check({force:true});
+ await page.locator('input[name=addons][value=Elite]').check({force:true});
+ await page.locator('#save-entry').click();
+ const saved = await page.evaluate(()=>localStorage.getItem('dispensing-record:v1'));
+ await expect(page.locator('#total')).toHaveText('€2.00');
+ await openAccount(page);
+ await page.getByRole('button',{name:'Hide summaries',exact:true}).click();
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ await expect(page.locator('#summary-toggle')).toHaveAttribute('aria-expanded','false');
+ await page.reload();
+ await expect(page.locator('#cloud-status')).toContainText('Saved on this device only');
+ await expect(page.locator('#bonus-summary')).toBeHidden();
+ expect(await page.evaluate(()=>localStorage.getItem('dispensing-record:v1'))).toBe(saved);
+ const second=await context.newPage();
+ try {
+  await second.goto('/');
+  await expect(second.locator('#bonus-summary')).toBeHidden();
+  await openAccount(second);
+  await second.getByRole('button',{name:'Show summaries',exact:true}).click();
+  await expect(second.locator('#total')).toBeVisible();
+  await expect(page.locator('#total')).toBeVisible();
+ } finally { await second.close(); }
+ await page.reload();
+ await expect(page.locator('#total')).toBeVisible();
+ await expect(page.locator('#total')).toHaveText('€2.00');
+});

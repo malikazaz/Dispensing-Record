@@ -47,6 +47,8 @@ The same saved record cannot belong to two active claims. Re-entering a receipt 
 
 Claims work locally and sync with the account, and JSON backups include their history. Refresh older open app tabs before using claims. Before moving to another device, confirm **Account → Saved online**, then sync that device; offline devices cannot know each other's unsynced claims. Restoring an old backup explicitly replaces history and can release previously submitted records, so the restore confirmation warns about this.
 
+**Account → Hide summaries** hides the three top bonus cards; **Show summaries** brings them back. The choice is remembered in this browser, including after reloading or signing in again, and is separate from records, backups and online sync. It hides only these cards; individual record bonuses, claims and exports remain visible when opened.
+
 The three summary cards show **Unclaimed bonus** (including saved drafts), **Claimed bonus** (submitted claims only), and **All-time total** (their sum across all currently saved records). Draft/submitted amounts stay frozen; records outside an active claim use current rates. Undoing submission releases those records back into the unclaimed amount using the current key. Pending bonuses are excluded. The record count remains on the Records tab. If the currency changes, claims retain their currency; the summary excludes other-currency records and directs the user to Claims instead of adding unlike currencies.
 
 ### Export a bonus period

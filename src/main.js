@@ -15,6 +15,9 @@ const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 let state = initialState(), raw = null, storageError = '', editing = null, editingOriginal = null, keyOriginal = null, cloud = null;
 try { ({state,raw} = loadState(localStorage)); }
 catch { storageError = 'Saved records could not be read. Existing storage has been left untouched. Download the stored data below for recovery, or restore a valid backup.'; }
+const SUMMARY_VISIBILITY_KEY = 'dispensing-record:hide-summaries:v1';
+let summariesHidden = false, summariesLocked = Boolean(state.cloud);
+try { summariesHidden = localStorage.getItem(SUMMARY_VISIBILITY_KEY) === 'true'; } catch { /* Still allow hiding for this visit. */ }
 const fmt = (cents) => money(cents,state.key.currency);
 let claimsUI=null, exportClaimId=null, recoveredClaimId=null;
 let legacyThirdPair=false;
@@ -23,13 +26,13 @@ let entryDate;
 try { entryDate = readEntryDate(sessionStorage); } catch { entryDate = localDate(); }
 
 $('#app').innerHTML = `
-  <header class="topbar"><div class="brand"><span class="brand-mark">${icon('glasses')}</span><span>Dispensing<span class="brand-light"> Record</span></span></div><div class="account-wrapper"><button id="account-toggle" class="account-toggle" aria-expanded="false" aria-controls="account-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><span>Account</span><span id="account-dot" class="dot" aria-hidden="true"></span></button><div id="account-menu" class="account-menu" aria-label="Account settings" hidden></div></div></header>
+  <header class="topbar"><div class="brand"><span class="brand-mark">${icon('glasses')}</span><span>Dispensing<span class="brand-light"> Record</span></span></div><div class="account-wrapper"><button id="account-toggle" class="account-toggle" aria-expanded="false" aria-controls="account-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><span>Account</span><span id="account-dot" class="dot" aria-hidden="true"></span></button><div id="account-menu" class="account-menu" aria-label="Account settings" hidden><button id="summary-toggle" class="button text-button" type="button" aria-controls="bonus-summary">Hide summaries</button></div></div></header>
   <main>
     <h1 class="sr-only">Dispensing Record</h1>
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <div id="storage-error" class="warning" role="alert" hidden></div>
     <p id="locked-message" class="locked-message" hidden>Open Account to sign in to your records.</p>
-    <section class="stats" aria-label="Bonus summary">
+    <section id="bonus-summary" class="stats" aria-label="Bonus summary" ${summariesHidden || summariesLocked ? 'hidden' : ''}>
       <div class="stat"><span class="stat-label">Unclaimed bonus</span><strong id="unclaimed-bonus">€0.00</strong></div>
       <div class="stat"><span class="stat-label">Claimed bonus</span><strong id="claimed-bonus">€0.00</strong></div>
       <div class="stat"><span class="stat-label">All-time total <span id="total-status"></span></span><strong id="total">€0.00</strong><span id="total-caption" class="stat-note" hidden></span></div>
@@ -72,6 +75,26 @@ $('#app').innerHTML = `
     <div class="dialog-actions"><button type="button" id="cancel-export" class="button secondary">Cancel</button><button id="download-export" class="button primary" type="submit">${icon('download')}Download Excel</button></div>
   </form></dialog>
   <dialog id="key-dialog" aria-labelledby="key-title"><form id="key-form"><div class="dialog-heading"><div><p class="eyebrow">REFERENCE & SETTINGS</p><h2 id="key-title">Your bonus key</h2></div><button type="button" id="close-key" class="close-button" aria-label="Close bonus key">×</button></div><p class="dialog-intro">Amounts are per selected item. Leave an unknown rate blank; use 0 for a column that earns no bonus. Saving changes recalculates unclaimed records. Saved claims keep their original amounts.</p><div id="key-content"></div><div id="key-error" class="inline-error" role="alert" hidden></div><div class="dialog-actions"><button type="button" id="cancel-key" class="button secondary">Cancel</button><button class="button primary" type="submit">Save bonus key</button></div></form></dialog>`;
+
+function updateSummaryVisibility() {
+  $('#bonus-summary').hidden = summariesLocked || summariesHidden;
+  $('#summary-toggle').textContent = summariesHidden ? 'Show summaries' : 'Hide summaries';
+  $('#summary-toggle').setAttribute('aria-expanded', String(!summariesLocked && !summariesHidden));
+  $('#summary-toggle').disabled = summariesLocked;
+}
+$('#summary-toggle').addEventListener('click', () => {
+  summariesHidden = !summariesHidden;
+  updateSummaryVisibility();
+  try { localStorage.setItem(SUMMARY_VISIBILITY_KEY, String(summariesHidden)); }
+  catch { notify('This choice applies for this visit only. Your browser could not save the preference.'); }
+});
+window.addEventListener('storage', event => {
+  if (event.key === SUMMARY_VISIBILITY_KEY) {
+    summariesHidden = event.newValue === 'true';
+    updateSummaryVisibility();
+  }
+});
+updateSummaryVisibility();
 
 function choices(group, long=false) {
   return (group==='offers'?ACTIVE_BONUS_GROUPS.offers:group==='thirdAddons'?GROUPS.addons:GROUPS[group]).map(label => `<label class="${long?'offer-choice':'chip'}"><input type="checkbox" name="${group}" value="${escape(label)}"><span>${escape(label)}</span></label>`).join('');
@@ -458,7 +481,9 @@ cloud = installCloudUI({
     renderRecords(); updatePreview(); return state;
   },
   locked: value => {
-    for (const selector of ['.stats', '.workspace', '.page-footer', '.view-toolbar', '#open-key']) $(selector).hidden = value;
+    summariesLocked = value;
+    updateSummaryVisibility();
+    for (const selector of ['.workspace', '.page-footer', '.view-toolbar', '#open-key']) $(selector).hidden = value;
     $('#locked-message').hidden = !value;
     if(value)claimsUI?.close();
     if (value) for (const selector of ['#key-dialog', '#export-dialog']) $(selector).close();
